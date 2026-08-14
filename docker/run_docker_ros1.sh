@@ -7,9 +7,9 @@
 # It still not working, try running the script as root.
 
 # Default options
-DOCKER=bievr_lio_ros
+DOCKER=coin_bievr_ros
 DOCKERFILE=Dockerfile_ros1
-NAME=BIEVR-LIO-ROS1
+NAME=COIN-BIEVR-ROS1
 BUILD=false
 
 help()
@@ -86,7 +86,7 @@ docker run -it --rm \
     --volume="$SSH_AUTH_SOCK:/ssh-agent" \
     --env=SSH_AUTH_SOCK=/ssh-agent \
     --env="DISPLAY=$DISPLAY" \
-    --volume=/home/$USER/data:/home/bievr/data \
+    --volume=/home/$USER/data:/home/coin_bievr/data \
     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     --env="XAUTHORITY=$XAUTH" \
     --volume="$XAUTH:$XAUTH" \

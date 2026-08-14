@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
-project(bievr_ros_common VERSION 0.0.0 LANGUAGES CXX)
+project(coin_bievr_ros_common VERSION 0.0.0 LANGUAGES CXX)
 
 # ---------------------------------------------------------------------------
 # Header-only library with the ROS-agnostic glue shared by the ROS1 and ROS2
-# wrappers, kept out of the core `bievr_lio` library so its include tree stays
+# wrappers, kept out of the core `coin_bievr` library so its include tree stays
 # free of any wrapper/interface code:
 #   - config_loader.h     : parses the shared YAML config into the core `Config`
 #   - conversions_impl.h  : templated ROS msg <-> LIO type conversions
@@ -12,7 +12,7 @@ project(bievr_ros_common VERSION 0.0.0 LANGUAGES CXX)
 # conversions_impl.h) are supplied by the consumer, exactly as before: this
 # library only carries the headers and the dependency on the core library.
 # ---------------------------------------------------------------------------
-find_package(bievr_lio REQUIRED)
+find_package(coin_bievr REQUIRED)
 
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
@@ -22,9 +22,9 @@ target_include_directories(${PROJECT_NAME} INTERFACE
   $<INSTALL_INTERFACE:include>
 )
 
-# bievr_lio publicly carries Eigen/Ceres/TBB, so consumers of this library get
+# coin_bievr publicly carries Eigen/Ceres/TBB, so consumers of this library get
 # everything the headers need from the core (TBB for conversions_impl.h, etc.).
-target_link_libraries(${PROJECT_NAME} INTERFACE bievr_lio::bievr_lio)
+target_link_libraries(${PROJECT_NAME} INTERFACE coin_bievr::coin_bievr)
 
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_20)
 

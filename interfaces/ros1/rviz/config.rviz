@@ -64,7 +64,7 @@ Visualization Manager:
         Shaft Length: 1
         Shaft Radius: 0.05000000074505806
         Value: Axes
-      Topic: /bievr_lio/odom
+      Topic: /coin_bievr/odom
       Unreliable: false
       Value: true
     - Alpha: 0.10000000149011612
@@ -90,7 +90,7 @@ Visualization Manager:
       Size (Pixels): 1
       Size (m): 0.009999999776482582
       Style: Points
-      Topic: /bievr_lio/points/registered
+      Topic: /coin_bievr/points/registered
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -118,7 +118,7 @@ Visualization Manager:
       Size (Pixels): 2
       Size (m): 0.009999999776482582
       Style: Points
-      Topic: /bievr_lio/points/coarse
+      Topic: /coin_bievr/points/coarse
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -146,7 +146,7 @@ Visualization Manager:
       Size (Pixels): 2
       Size (m): 0.009999999776482582
       Style: Points
-      Topic: /bievr_lio/points/fine
+      Topic: /coin_bievr/points/fine
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true

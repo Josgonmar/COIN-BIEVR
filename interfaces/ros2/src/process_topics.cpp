@@ -1,6 +1,6 @@
-#include <bievr_lio/common.h>
-#include <bievr_lio/log++.h>
-#include <bievr_lio/synchronizer.h>
+#include <coin_bievr/common.h>
+#include <coin_bievr/log++.h>
+#include <coin_bievr/synchronizer.h>
 #include <tbb/global_control.h>
 #include <tbb/task_arena.h>
 
@@ -12,10 +12,10 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <string>
 
-#include "bievr_lio/config_loader.h"
-#include "bievr_lio_ros2/publisher.h"
-#include "bievr_ros_common/conversions.h"
-#ifdef BIEVR_WITH_LIVOX
+#include "coin_bievr/config_loader.h"
+#include "coin_bievr_ros2/publisher.h"
+#include "coin_bievr_ros_common/conversions.h"
+#ifdef COIN_BIEVR_WITH_LIVOX
 #include <livox_ros_driver2/msg/custom_msg.hpp>
 #endif
 
@@ -24,12 +24,12 @@ using namespace std::chrono_literals;
 int main(int argc, char** argv) {
   srand(1);
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<rclcpp::Node>("bievr_lio_topic_node");
+  auto node = std::make_shared<rclcpp::Node>("coin_bievr_topic_node");
 
-  bievr::Config config;
+  coin_bievr::Config config;
   // rclcpp::init does not strip ROS arguments from argv; remove_ros_arguments
   // returns just the application arguments (our config-file flags).
-  if (!bievr::loadConfigFromArgs(rclcpp::remove_ros_arguments(argc, argv), config)) {
+  if (!coin_bievr::loadConfigFromArgs(rclcpp::remove_ros_arguments(argc, argv), config)) {
     LOG(E, "Failed to load config.");
     return -1;
   }
@@ -40,9 +40,9 @@ int main(int argc, char** argv) {
   tbb::global_control tbb_control(tbb::global_control::max_allowed_parallelism, n_threads);
   LOG(I, config.max_num_threads > 0, "TBB parallelism limited to " << n_threads << " threads.");
 
-  auto pipeline = std::make_shared<bievr::Pipeline>(config.pipeline_config);
-  auto synchronizer = std::make_shared<bievr::Synchronizer>(pipeline);
-  auto lio_pub = std::make_shared<bievr::Publisher>(node, pipeline, "bievr_lio");
+  auto pipeline = std::make_shared<coin_bievr::Pipeline>(config.pipeline_config);
+  auto synchronizer = std::make_shared<coin_bievr::Synchronizer>(pipeline);
+  auto lio_pub = std::make_shared<coin_bievr::Publisher>(node, pipeline, "coin_bievr");
 
   // ROS2 has no ShapeShifter: discover the pointcloud topic's type from the
   // graph, then use a generic (serialized) subscription to handle whichever of
@@ -78,18 +78,18 @@ int main(int argc, char** argv) {
           sensor_msgs::msg::PointCloud2 msg;
           rclcpp::Serialization<sensor_msgs::msg::PointCloud2>().deserialize_message(
               serialized.get(), &msg);
-          bievr::StampedIntensityPointcloud pointcloud;
-          if (bievr::msgToPointcloud(msg, pointcloud)) {
+          coin_bievr::StampedIntensityPointcloud pointcloud;
+          if (coin_bievr::msgToPointcloud(msg, pointcloud)) {
             synchronizer->addPointcloud(pointcloud);
           }
         }
-#ifdef BIEVR_WITH_LIVOX
+#ifdef COIN_BIEVR_WITH_LIVOX
         else if (pc_type == "livox_ros_driver2/msg/CustomMsg") {
           livox_ros_driver2::msg::CustomMsg msg;
           rclcpp::Serialization<livox_ros_driver2::msg::CustomMsg>().deserialize_message(
               serialized.get(), &msg);
-          bievr::StampedIntensityPointcloud pointcloud;
-          if (bievr::msgToPointcloud(msg, pointcloud)) {
+          coin_bievr::StampedIntensityPointcloud pointcloud;
+          if (coin_bievr::msgToPointcloud(msg, pointcloud)) {
             synchronizer->addPointcloud(pointcloud);
           }
         }
@@ -101,8 +101,8 @@ int main(int argc, char** argv) {
 
   auto imu_sub = node->create_subscription<sensor_msgs::msg::Imu>(
       config.topic_config.imu_topic, sensor_qos, [&](const sensor_msgs::msg::Imu::SharedPtr msg) {
-        bievr::ImuMeasurement imu;
-        if (!bievr::msgToImuMeasurement(*msg, imu)) {
+        coin_bievr::ImuMeasurement imu;
+        if (!coin_bievr::msgToImuMeasurement(*msg, imu)) {
           return;
         }
         synchronizer->addImu(imu);

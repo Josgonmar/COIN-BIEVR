@@ -17,7 +17,7 @@ def resolve_config(value, subdir):
     """
     if value.startswith('/'):
         return value
-    pkg_share = get_package_share_directory('bievr_lio_ros2')
+    pkg_share = get_package_share_directory('coin_bievr_ros2')
     return os.path.join(pkg_share, 'config', subdir, value + '.yaml')
 
 
@@ -26,13 +26,13 @@ def launch_setup(context, *args, **kwargs):
     params = LaunchConfiguration('params').perform(context)
 
     rviz_config = os.path.join(
-        get_package_share_directory('bievr_lio_ros2'), 'rviz', 'config.rviz')
+        get_package_share_directory('coin_bievr_ros2'), 'rviz', 'config.rviz')
 
     return [
         Node(
-            package='bievr_lio_ros2',
+            package='coin_bievr_ros2',
             executable='process_topics',
-            name='bievr_lio_topics_node',
+            name='coin_bievr_topics_node',
             output='screen',
             # Pass only the YAML config-file *paths* as command-line arguments;
             # the node parses them with yaml-cpp (the same plain files ROS1 uses).
@@ -63,6 +63,6 @@ def generate_launch_description():
                         "or an absolute path (starting with '/') to a config file."),
         DeclareLaunchArgument(
             'rviz', default_value='false',
-            description='Launch RViz2 with the bievr_lio visualization config.'),
+            description='Launch RViz2 with the coin_bievr visualization config.'),
         OpaqueFunction(function=launch_setup),
     ])

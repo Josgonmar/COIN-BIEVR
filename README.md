@@ -1,50 +1,67 @@
 <p align="center">
-  <img width=400 src="doc/bievr_final.svg">
+  <img width=400 src="doc/coin_bievr_final.svg">
 </p>
 
 
-# BIEVR-LIO: Robust LiDAR-Inertial Odometry through Bump-Image-Enhanced Voxel Maps
+# COIN-BIEVR: 3D Intensity Mapping for Robust LiDAR-Inertial Odometry
 
 <p align="center">
-<a href="https://patripfr.github.io/bievr-lio/"><img src="https://shieldcn.dev/badge/Project-Page-gray?size=xs" alt="Project Page" /></a>
-<a href="https://arxiv.org/abs/2604.14421"><img src="https://shieldcn.dev/badge/arXiv-2604.14421-b31b1b?logo=arxiv&size=xs" alt="arXiv" /></a>
-<a href="https://arxiv.org/pdf/2604.14421"><img src="https://shieldcn.dev/badge/Paper-PDF-black?size=xs" alt="Paper PDF" /></a>
+<a href="https://github.com/Josgonmar/COIN-BIEVR"><img src="https://shieldcn.dev/badge/Project-Page-gray?size=xs" alt="Project Page" /></a>
+<a href="https://icra2026-rigorous-perception.github.io/pdf/pfreundschuh2026.pdf"><img src="https://shieldcn.dev/badge/Paper-PDF-black?size=xs" alt="Paper PDF" /></a>
 <a href="LICENSE"><img src="https://shieldcn.dev/badge/License-BSD--3--Clause-green?size=xs" alt="License: BSD-3-Clause" /></a>
-<a href="https://youtu.be/TsDJOdthhNk"><img src="https://shieldcn.dev/badge/YouTube-red?logo=youtube&size=xs" alt="YouTube" /></a>
-</p>
-
-<p align="center">
-<a href="https://github.com/ethz-asl/BIEVR-LIO/actions/workflows/build_20_04.yaml"><img src="https://shieldcn.dev/github/ethz-asl/BIEVR-LIO/ci.svg?workflow=build_20_04.yaml&label=ROS1%20Noetic&size=xs&variant=outline&mode=light" alt="Ubuntu 20.04 + ROS Noetic Build" /></a>
-<a href="https://github.com/ethz-asl/BIEVR-LIO/actions/workflows/build_22_04.yaml"><img src="https://shieldcn.dev/github/ethz-asl/BIEVR-LIO/ci.svg?workflow=build_22_04.yaml&label=ROS2%20Humble&size=xs&variant=outline&mode=light" alt="Ubuntu 22.04 + ROS Humble Build" /></a>
-<a href="https://github.com/ethz-asl/BIEVR-LIO/actions/workflows/build_24_04.yaml"><img src="https://shieldcn.dev/github/ethz-asl/BIEVR-LIO/ci.svg?workflow=build_24_04.yaml&label=ROS2%20Jazzy&size=xs&variant=outline&mode=light" alt="Ubuntu 24.04 + ROS Jazzy Build" /></a>
 </p>
 
 <p align="center">
   <img width='100%' src="doc/tunnel_detail.png">
 </p>
 
-BIEVR-LIO is a robust LiDAR-Inertial Odometry framework that uses a high-resolution,
-voxel-wise oriented height image map to exploit subtle geometric variations in
-challenging, information-sparse environments.
+COIN-BIEVR adapts intensity-based concepts from COIN-LIO into the BIEVR-LIO framework by augmenting it with voxel-wise intensity maps. This enables photometric optimization in 3D space, instead of a projected 2D image space, which supports irregular LiDAR scan patterns.
+
+>[!IMPORTANT]
+> This is an independent, unofficial implementation of COIN-BIEVR, built mostly for the fun of it and to learn more about the method. I’m not affiliated with the authors of the COIN-BIEVR paper, and this repository should not be considered an official or reference implementation.
+>
+> The project builds on the authors’ official open-source BIEVR-LIO implementation. I implemented the intensity-related additions myself, following the COIN-BIEVR paper as closely as I could.
+>
+> I’m by no means an expert on this, so expect rough edges, misunderstandings, and probably a bug or two. AI-assisted tools were also used during implementation and code review, so there may well be some confidently invented nonsense hiding somewhere. If you spot something wrong, corrections and contributions are very welcome!
+>
+>[!NOTE]
+> The implementation currently uses the generic spherical projection from Equation (1) of the paper. I haven’t tested it across many different LiDAR configurations yet, so I’d recommend taking a look at the config files and checking that the assumptions make sense for your setup.
 
 <details>
-<summary><b>Abstract</b></summary>
+<summary><b>COIN-BIEVR paper abstract</b></summary>
 <br>
-Reliable odometry is essential for mobile robots as they increasingly enter more challenging environments, which often contain little information to constrain point cloud registration, resulting in degraded LiDAR–Inertial Odometry (LIO) accuracy or even divergence. To address this, we present BIEVR-LIO, a novel approach designed specifically to exploit subtle variations in the available geometry for improved robustness. We propose a high-resolution map representation that stores surfaces as voxel-wise oriented height images. This representation can directly be used for registration without the calculation of intermediate geometric primitives while still supporting efficient updates. Since informative geometry is often sparsely distributed in the environment, we further propose a map-informed point sampling strategy to focus registration on geometrically informative regions, improving robustness in uninformative environments while reducing computational cost compared to global high-resolution sampling. Experiments across multiple sensors, platforms, and environments demonstrate state-of-the-art performance in well-constrained scenes and substantial improvements in challenging scenarios where baseline methods diverge. Additionally, we demonstrate that the fine-grained geometry captured by BIEVR-LIO can be used for downstream tasks such as elevation mapping for robot locomotion.
+Purely geometry-based LiDAR-Inertial Odometry
+(LIO) often fails in geometrically degenerate environments, like
+tunnels or flat fields. While current intensity-augmented methods mitigate this, they rely on dense intensity images for feature
+detection and gradient calculation. This introduces errors from
+approximated projection models and is incompatible with the irregular scan patterns of many modern sensors. To address this,
+we propose COIN-BIEVR, which integrates intensity directly
+into a high-resolution 3D map. Rather than performing 2D
+image-feature detection, we propose a map-informed sampling
+to identify informative intensity points. These points are used to
+extend a geometry-based LIO framework with a photometric
+optimization that calculates intensity gradients directly on the
+3D representation without an intermediate projection model
+and thereby supports diverse scan patterns. Experiments across
+multiple datasets demonstrate that COIN-BIEVR significantly
+improves robustness in degenerate scenarios while maintaining
+or improving accuracy in geometrically rich environments.
 </details>
 
 # Setup
 
-The core estimator (`bievr_lio`) is a self-contained, ROS-independent library. On
-top of it we provide both a **ROS1** interface (`bievr_lio_ros`) and a **ROS2**
-interface (`bievr_lio_ros2`), which live side by side under `interfaces/`.
+The core estimator (`coin_bievr`) is a self-contained, ROS-independent library. On
+top of it we provide both a **ROS1** interface (`coin_bievr_ros`) and a **ROS2**
+interface (`coin_bievr_ros2`), which live side by side under `interfaces/`.
 
 ## Installation
 
 ### Dependencies
 
-BIEVR-LIO is intentionally light on dependencies: the core estimator only needs
-**[Eigen](https://eigen.tuxfamily.org)** and **[Ceres](http://ceres-solver.org)**.
+The core estimator depends on **[Eigen](https://eigen.tuxfamily.org)**,
+**[Ceres](http://ceres-solver.org)**, and **[TBB](https://github.com/uxlfoundation/oneTBB)**.
+The ROS wrappers additionally use `yaml-cpp` and the dependencies provided by
+their respective ROS distributions.
 
 
 Build instructions for both ROS versions are below. Each also offers an optional
@@ -66,22 +83,27 @@ cd docker/
 
 The `-b` flag builds the image. On subsequent runs you can
 omit it to reuse the existing image. Your `~/data` folder is mounted to
-`/home/bievr/data` inside the container so you can keep datasets outside the
+`/home/coin_bievr/data` inside the container so you can keep datasets outside the
 image.
 
 To open another terminal inside the running container (e.g. to launch a node
 and play a bag):
 
 ```bash
-docker exec -it BIEVR-LIO-ROS1 /bin/bash
+docker exec -it COIN-BIEVR-ROS1 /bin/bash
 ```
 
 ### Build
 
 Requires [ROS Noetic](https://wiki.ros.org/noetic/Installation/Ubuntu) and
-`python3-catkin-tools` (`sudo apt install python3-catkin-tools`).
+the build dependencies used by the packages:
 
-Create a catkin workspace and clone BIEVR-LIO into it:
+```bash
+sudo apt install git build-essential cmake python3-catkin-tools libeigen3-dev \
+  libgoogle-glog-dev libtbb-dev libyaml-cpp-dev
+```
+
+Create a catkin workspace and clone COIN-BIEVR into it:
 
 ```bash
 mkdir -p ~/catkin_ws/src
@@ -92,26 +114,26 @@ catkin config --cmake-args -DCMAKE_BUILD_TYPE=Release
 catkin config --merge-devel
 
 cd ~/catkin_ws/src
-git clone git@github.com:ethz-asl/BIEVR-LIO.git BIEVR-LIO
+git clone git@github.com:Josgonmar/COIN-BIEVR.git
 ```
 
-Install the Ceres version used by BIEVR-LIO with the provided script (builds
+Install the Ceres version used by COIN-BIEVR with the provided script (builds
 Ceres 2.2.0 from source):
 
 ```bash
-./BIEVR-LIO/docker/scripts/install_ceres.sh
+sudo ./COIN-BIEVR/docker/scripts/install_ceres.sh
 ```
 
 (Optional) **Livox support.** The Livox `CustomMsg` branches are only compiled if
 the corresponding driver is found in the workspace at build time. Otherwise
-BIEVR-LIO builds fine without them. If you need to process Livox data, clone and
-build the matching driver into `~/catkin_ws/src` *before* building BIEVR-LIO
+COIN-BIEVR builds fine without them. If you need to process Livox data, clone and
+build the matching driver into `~/catkin_ws/src` *before* building COIN-BIEVR
 (each driver also needs its Livox-SDK installed system-wide):
 
-- Livox gen1 (`livox_ros_driver`, enables `BIEVR_WITH_LIVOX`):
+- Livox gen1 (`livox_ros_driver`, enables `COIN_BIEVR_WITH_LIVOX`):
   [livox_ros_driver](https://github.com/Livox-SDK/livox_ros_driver) +
   [Livox-SDK](https://github.com/Livox-SDK/Livox-SDK)
-- Livox gen2 (`livox_ros_driver2`, enables `BIEVR_WITH_LIVOX2`):
+- Livox gen2 (`livox_ros_driver2`, enables `COIN_BIEVR_WITH_LIVOX2`):
   [livox_ros_driver2](https://github.com/Livox-SDK/livox_ros_driver2) +
   [Livox-SDK2](https://github.com/Livox-SDK/Livox-SDK2)
 
@@ -119,7 +141,7 @@ Build and source it:
 
 ```bash
 cd ~/catkin_ws
-catkin build bievr_lio_ros
+catkin build coin_bievr_ros
 source devel/setup.bash
 ```
 </details>
@@ -140,61 +162,67 @@ cd docker/
 
 The `-b` flag builds the image. On subsequent runs you can
 omit it to reuse the existing image. Your `~/data` folder is mounted to
-`/home/bievr/data` inside the container.
+`/home/coin_bievr/data` inside the container.
 
 To open another terminal inside the running container (e.g. to launch a node
 and play a bag):
 
 ```bash
-docker exec -it BIEVR-LIO-ROS2 /bin/bash
+docker exec -it COIN-BIEVR-ROS2 /bin/bash
 ```
 
 ### Build
 
 Requires [ROS2 Jazzy](https://docs.ros.org/en/jazzy/Installation.html) and
-`python3-colcon-common-extensions`
-(`sudo apt install python3-colcon-common-extensions`). The system was tested on
-Jazzy, but other ROS2 distributions might also work.
+the build dependencies used by the packages:
 
-Create a colcon workspace and clone BIEVR-LIO into it:
+```bash
+sudo apt install git build-essential cmake python3-colcon-common-extensions \
+  libeigen3-dev libgoogle-glog-dev libtbb-dev libyaml-cpp-dev
+```
+
+These instructions target Jazzy. The repository also contains a separate
+ROS2 Humble CI workflow.
+
+Create a colcon workspace and clone COIN-BIEVR into it:
 
 ```bash
 mkdir -p ~/colcon_ws/src
 cd ~/colcon_ws/src
-git clone git@github.com:ethz-asl/BIEVR-LIO.git BIEVR-LIO
+git clone git@github.com:Josgonmar/COIN-BIEVR.git
 ```
 
-Install the Ceres version used by BIEVR-LIO with the provided script (builds
+Install the Ceres version used by COIN-BIEVR with the provided script (builds
 Ceres 2.2.0 from source):
 
 ```bash
-./BIEVR-LIO/docker/scripts/install_ceres.sh
+sudo ./COIN-BIEVR/docker/scripts/install_ceres.sh
 ```
 
 (Optional) **Livox support.** The Livox `CustomMsg` branch is only compiled if
-`livox_ros_driver2` is found in the workspace at build time. Otherwise BIEVR-LIO
+`livox_ros_driver2` is found in the workspace at build time. Otherwise COIN-BIEVR
 builds fine without it. If you need to process Livox data, clone and build the
-driver into `~/colcon_ws/src` *before* building BIEVR-LIO (it also needs its
+driver into `~/colcon_ws/src` *before* building COIN-BIEVR (it also needs its
 Livox-SDK2 installed system-wide). Only gen2 exists for ROS2 (enables
-`BIEVR_WITH_LIVOX`):
+`COIN_BIEVR_WITH_LIVOX`):
 
 - [livox_ros_driver2](https://github.com/Livox-SDK/livox_ros_driver2) +
   [Livox-SDK2](https://github.com/Livox-SDK/Livox-SDK2)
 
-Build and source it (from the workspace root, so colcon picks up both `BIEVR/`,
+Build and source it (from the workspace root, so colcon picks up both `COIN_BIEVR/`,
 the core, and `interfaces/ros2`):
 
 ```bash
 cd ~/colcon_ws
 source /opt/ros/jazzy/setup.bash
-colcon build --packages-up-to bievr_lio_ros2
+colcon build --packages-up-to coin_bievr_ros2
 source install/setup.bash
 ```
 </details>
 
 ## Run data
 
-BIEVR-LIO provides two entry points, available for both ROS versions:
+COIN-BIEVR provides two entry points, available for both ROS versions:
 
 - **`process_topics`** runs online: it subscribes to the LiDAR and IMU topics and
   processes messages as they arrive. Use it with a live sensor or alongside
@@ -213,13 +241,13 @@ the visualization.
 Process live topics:
 
 ```bash
-roslaunch bievr_lio_ros process_topics.launch sensor_config:=<sensor_config>
+roslaunch coin_bievr_ros process_topics.launch sensor_config:=<sensor_config>
 ```
 
 Replay a rosbag:
 
 ```bash
-roslaunch bievr_lio_ros process_bag.launch sensor_config:=<sensor_config> rosbag:=/path/to/bag.bag
+roslaunch coin_bievr_ros process_bag.launch sensor_config:=<sensor_config> rosbag:=/path/to/bag.bag
 ```
 </details>
 
@@ -230,13 +258,13 @@ roslaunch bievr_lio_ros process_bag.launch sensor_config:=<sensor_config> rosbag
 Process live topics:
 
 ```bash
-ros2 launch bievr_lio_ros2 process_topics.launch.py sensor_config:=<sensor_config>
+ros2 launch coin_bievr_ros2 process_topics.launch.py sensor_config:=<sensor_config>
 ```
 
 Replay a rosbag2 directory:
 
 ```bash
-ros2 launch bievr_lio_ros2 process_bag.launch.py sensor_config:=<sensor_config> rosbag:=/path/to/bag_dir
+ros2 launch coin_bievr_ros2 process_bag.launch.py sensor_config:=<sensor_config> rosbag:=/path/to/bag_dir
 ```
 </details>
 
@@ -245,12 +273,11 @@ ros2 launch bievr_lio_ros2 process_bag.launch.py sensor_config:=<sensor_config> 
 The configuration is split in two files:
 
 - **`config/params.yaml`**: Algorithm parameters (map resolution, sampling,
-  optimization, IMU window, ...). These are dataset-independent and **typically do
-  not need to be adjusted**: the defaults have been validated across a wide range
-  of sensors, platforms, and environments.
+  optimization, IMU window, ...). These are shared across sensors.
 - **`config/sensor_configs/<name>.yaml`**: Per-dataset / per-sensor settings:
   the LiDAR and IMU topic names, the LiDAR→IMU extrinsic calibration, and the
-  LiDAR min/max range.
+  LiDAR min/max range, spherical intensity-image geometry, brightness window,
+  and intensity normalization scale.
 
 Select a sensor config at launch with `sensor_config:=<name>`, which resolves to
 `config/sensor_configs/<name>.yaml` (an absolute path starting with `/` is used
@@ -261,7 +288,7 @@ verbatim, so configs may also live outside the package). Likewise `params:=<name
 <summary><b>Provided datasets</b></summary>
 <br>
 
-We provide ready-to-use sensor configs for the following public datasets:
+The repository provides sensor configs for the following public datasets:
 
 | Config | Dataset |
 |--------|---------|
@@ -276,31 +303,75 @@ We provide ready-to-use sensor configs for the following public datasets:
 <summary><b>Running on your own data</b></summary>
 <br>
 
-To run BIEVR-LIO on a new sensor or dataset, copy one of the provided sensor
+To run COIN-BIEVR on a new sensor or dataset, copy one of the provided sensor
 configs to `config/sensor_configs/<your_name>.yaml` and adjust:
 
 - `topics.pointcloud` / `topics.imu` : The topic names in your data.
 - `calibration` : the `T_IMU_LIDAR` extrinsic (LiDAR → IMU) rotation and
   translation for your setup.
 - `lidar.min_range_m` / `lidar.max_range_m` : the usable range of your LiDAR.
+- `intensity` : the sensor-specific spherical projection dimensions, vertical
+  field of view, brightness window, and normalization scale.
 
-The algorithm parameters in `params.yaml` can usually be left at their defaults.
+For `sensor_msgs/PointCloud2`, the input must contain contiguous `x`, `y`, and
+`z` fields, a per-point `t`, `time`, or `timestamp` field, and a numeric
+`intensity` or `reflectivity` field. Scans without those required channels are
+rejected. Supported Livox custom messages provide time and reflectivity through
+their native fields.
+
+The shared algorithm parameters in `params.yaml` are intended to remain the
+same between sensor configurations; tune them only when needed for your setup.
 </details>
 
 # Acknowledgements
-For a full SLAM integration including loop-closure detection and pose-graph optimization check out [BIEVR-LIO-SLAM](https://github.com/S0UL4/BIEVR-LIO-SLAM), contributed by [SOUL4](https://github.com/S0UL4)
 
-We thank the authors of [DLIO](https://github.com/vectr-ucla/direct_lidar_inertial_odometry), [Wavemap](https://github.com/ethz-asl/wavemap) and [UGPM](https://github.com/UTS-RI/ugpm) for open-sourcing their works that served as an inspiration for us.
-We used [ascii-image-converter](https://github.com/TheZoraiz/ascii-image-converter) for our ascii art.
+This repository is built on the official
+[BIEVR-LIO](https://github.com/ethz-asl/BIEVR-LIO) implementation. I sincerely
+thank its authors for publishing their code and making this independent
+COIN-BIEVR implementation possible. The intensity-related extensions in this
+repository were developed by following the COIN-BIEVR paper; the original
+BIEVR-LIO and COIN-BIEVR authors are not responsible for this implementation.
+
+The upstream BIEVR-LIO project also acknowledges
+[DLIO](https://github.com/vectr-ucla/direct_lidar_inertial_odometry),
+[Wavemap](https://github.com/ethz-asl/wavemap), and
+[UGPM](https://github.com/UTS-RI/ugpm). The ASCII art was generated using
+[ascii-image-converter](https://github.com/TheZoraiz/ascii-image-converter).
+
+For a full SLAM integration including loop-closure detection and pose-graph
+optimization, see
+[BIEVR-LIO-SLAM](https://github.com/S0UL4/BIEVR-LIO-SLAM), contributed by
+[SOUL4](https://github.com/S0UL4).
+
+# License and disclaimer
+
+This repository is distributed under the same
+[BSD 3-Clause License](LICENSE) as the original BIEVR-LIO codebase. The software
+is provided **as is**, without warranties or guarantees of correctness,
+fitness, safety, or suitability for any purpose. Use, modification, and
+deployment are at your own risk. Neither the repository maintainer nor the
+upstream authors accept liability for damages or losses arising from its use.
+The complete license text governs if this summary conflicts with it.
 
 # Citation
 
-Please cite our work if you are using BIEVR-LIO in your research.
-  ```bibtex
+If you use this repository in your research, please cite both the original
+BIEVR-LIO work and the COIN-BIEVR paper followed by this implementation.
+
+```bibtex
 @article{pfreundschuh2026bievr,
   title        = {BIEVR-LIO: Robust LiDAR-Inertial Odometry through Bump-Image-Enhanced Voxel Maps},
   author       = {Pfreundschuh, Patrick and Tuna, Turcan and {Le Gentil}, Cedric and Siegwart, Roland and Cadena, Cesar and Oleynikova, Helen},
   year         = 2026,
   journal      = {Robotics: Science and Systems},
 }
-  ```
+```
+
+```bibtex
+@article{pfreundschuh2026coinbievr,
+  title        = {COIN-BIEVR: 3D Intensity Mapping for Robust LiDAR-Inertial Odometry},
+  author       = {Pfreundschuh, Patrick and {Le Gentil}, Cedric and Siegwart, Roland and Cadena, Cesar},
+  year         = 2026,
+  url          = {https://icra2026-rigorous-perception.github.io/pdf/pfreundschuh2026.pdf},
+}
+```

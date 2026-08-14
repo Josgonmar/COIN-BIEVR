@@ -49,12 +49,12 @@ cp -f package_ROS1.xml package.xml
 export ROS_EDITION=ROS1
 cd $CATKIN_WS/src
 
-# Clone BIEVR-LIO
-git clone git@github.com:ethz-asl/BIEVR-LIO.git
-cd BIEVR-LIO
+# Clone COIN-BIEVR
+git clone git@github.com:Josgonmar/COIN-BIEVR.git
+cd COIN-BIEVR
 
 # Build it!!
-catkin build --continue bievr_lio_ros -DROS_EDITION=ROS1
+catkin build --continue coin_bievr_ros -DROS_EDITION=ROS1
 
 # Add sourcing of the repo to the ~/.bashrc
 echo 'source $CATKIN_WS/devel/setup.bash' >> ~/.bashrc

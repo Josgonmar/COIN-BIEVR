@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
-project(bievr_lio_ros2)
+project(coin_bievr_ros2)
 
-# Declare the C++ standard via CMake (not a raw -std flag): bievr_lio links Ceres
+# Declare the C++ standard via CMake (not a raw -std flag): coin_bievr links Ceres
 # which propagates a cxx_std_17 compile feature, and a raw -std=c++2a would be
 # overridden by the -std=gnu++17 CMake appends for that feature. CMAKE_CXX_STANDARD
 # makes CMake take the max (C++20) and picks the right spelling per compiler
@@ -27,8 +27,8 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
-find_package(bievr_lio REQUIRED)         # plain-CMake package: provides bievr_lio::bievr_lio
-find_package(bievr_ros_common REQUIRED)  # plain-CMake package: shared header-only glue
+find_package(coin_bievr REQUIRED)         # plain-CMake package: provides coin_bievr::coin_bievr
+find_package(coin_bievr_ros_common REQUIRED)  # plain-CMake package: shared header-only glue
 find_package(TBB REQUIRED)
 find_package(yaml-cpp REQUIRED)    # shared config_loader.h parses plain YAML files
 
@@ -48,14 +48,14 @@ set(ament_dependencies
 )
 if(livox_ros_driver2_FOUND)
   list(APPEND ament_dependencies livox_ros_driver2)
-  message(STATUS "bievr_lio_ros2: livox_ros_driver2 found, enabling Livox support.")
+  message(STATUS "coin_bievr_ros2: livox_ros_driver2 found, enabling Livox support.")
 else()
-  message(STATUS "bievr_lio_ros2: livox_ros_driver2 NOT found, building without Livox support.")
+  message(STATUS "coin_bievr_ros2: livox_ros_driver2 NOT found, building without Livox support.")
 endif()
 
 # ---- Executables ----
 # The wrapper is now header-only apart from the two executables (conversions,
-# publisher and config loading all live in headers shared via bievr_ros_common),
+# publisher and config loading all live in headers shared via coin_bievr_ros_common),
 # so there is no library to build -- the executables link the dependencies
 # directly.
 add_executable(process_topics src/process_topics.cpp)
@@ -68,13 +68,13 @@ foreach(target process_topics process_bag)
     ${YAML_CPP_INCLUDE_DIR}
   )
   target_link_libraries(${target}
-    bievr_lio::bievr_lio
-    bievr_ros_common::bievr_ros_common
+    coin_bievr::coin_bievr
+    coin_bievr_ros_common::coin_bievr_ros_common
     TBB::tbb
     ${YAML_CPP_LIBRARIES}
   )
   if(livox_ros_driver2_FOUND)
-    target_compile_definitions(${target} PRIVATE BIEVR_WITH_LIVOX)
+    target_compile_definitions(${target} PRIVATE COIN_BIEVR_WITH_LIVOX)
   endif()
 endforeach()
 
@@ -91,7 +91,7 @@ install(DIRECTORY launch
 install(DIRECTORY rviz
   DESTINATION share/${PROJECT_NAME}
 )
-# Install the shared canonical YAMLs (BIEVR-LIO/config, a sibling of interfaces/)
+# Install the shared canonical YAMLs (COIN_BIEVR/config, a sibling of interfaces/)
 # into this package's share so FindPackageShare(pkg)/config resolves at runtime.
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../config
   DESTINATION share/${PROJECT_NAME}

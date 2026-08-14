@@ -2,7 +2,7 @@ FROM osrf/ros:jazzy-desktop-full
 
 # Build-time user matching the host user so bind-mounted files stay user-owned.
 # Override with --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g).
-ARG USERNAME=bievr
+ARG USERNAME=coin_bievr
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 

@@ -7,9 +7,9 @@
 # It still not working, try running the script as root.
 
 # Default options
-DOCKER=bievr_lio_ros2
+DOCKER=coin_bievr_ros2
 DOCKERFILE=Dockerfile_ros2
-NAME=BIEVR-LIO-ROS2
+NAME=COIN-BIEVR-ROS2
 BUILD=false
 
 help()
@@ -84,7 +84,7 @@ echo "Running docker..."
 
 docker run -it --rm \
     --env="DISPLAY=$DISPLAY" \
-    --volume=/home/$USER/data:/home/bievr/data \
+    --volume=/home/$USER/data:/home/coin_bievr/data \
     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     --env="XAUTHORITY=$XAUTH" \
     --volume="$XAUTH:$XAUTH" \

@@ -42,9 +42,9 @@ colcon build --cmake-args -DROS_EDITION=ROS2 -DDISTRO_ROS=jazzy --packages-selec
 
 cd $COLCON_WS/src
 
-# Clone BIEVR-LIO
-git clone git@github.com:ethz-asl/BIEVR-LIO.git
+# Clone COIN-BIEVR
+git clone git@github.com:Josgonmar/COIN-BIEVR.git
 
 cd $COLCON_WS
 # Build it!!
-colcon build --packages-up-to bievr_lio_ros2
+colcon build --packages-up-to coin_bievr_ros2

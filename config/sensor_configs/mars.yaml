@@ -12,5 +12,13 @@ lidar:
   min_range_m: 1.5 # Exclude points closer than this range [m]
   max_range_m: 450 # Exclude points farther than this range [m]
 
+intensity: # Downward-facing Livox Avia
+  image_width: 1024 # Spherical normalization image width [px]
+  image_height: 128 # Spherical normalization image height [px]
+  vertical_fov_deg: 77.2 # Vertical field of view covered by the normalization image [deg]
+  brightness_window_width: 41 # Sparse-safe local brightness window, must be odd [px]
+  brightness_window_height: 7 # Sparse-safe local brightness window, must be odd [px]
+  output_scale: 140 # Scale s in Eq. (2), output is clamped to [0, 255]
+
 map:
   max_size: 600000 # Maximum number of voxels to keep in the map

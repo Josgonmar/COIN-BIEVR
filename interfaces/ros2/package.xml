@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>bievr_lio_ros2</name>
+  <name>coin_bievr_ros2</name>
   <version>0.0.0</version>
-  <description>ROS2 (ament_cmake) interface for the BIEVR-LIO library.</description>
+  <description>ROS2 (ament_cmake) interface for the COIN-BIEVR library.</description>
 
   <maintainer email="patrick.pfreundschuh@ethz-asl.ch">paddy</maintainer>
 
-  <license>TODO</license>
+  <license>BSD-3-Clause</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>bievr_lio</depend>
-  <depend>bievr_ros_common</depend>
+  <depend>coin_bievr</depend>
+  <depend>coin_bievr_ros_common</depend>
   <depend>yaml_cpp_vendor</depend>
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>

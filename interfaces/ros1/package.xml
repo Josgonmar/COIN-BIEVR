@@ -1,17 +1,17 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>bievr_lio_ros</name>
+  <name>coin_bievr_ros</name>
   <version>0.0.0</version>
-  <description>The bievr_lio_ros package</description>
+  <description>The coin_bievr_ros package</description>
 
   <maintainer email="paddy@todo.todo">paddy</maintainer>
 
-  <license>TODO</license>
+  <license>BSD-3-Clause</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <depend>bievr_lio</depend>
-  <depend>bievr_ros_common</depend>
+  <depend>coin_bievr</depend>
+  <depend>coin_bievr_ros_common</depend>
   <depend>yaml-cpp</depend>
   <depend>nav_msgs</depend>
   <depend>rosbag</depend>
