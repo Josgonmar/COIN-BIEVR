@@ -33,7 +33,8 @@ class TypedPublisher {
     // the discovery handshake and would be dropped. transient_local makes the
     // publisher retain the last message and deliver it to subscribers as soon
     // as they connect, so the first message is never lost.
-    pub_ = node->create_publisher<T>(topic, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local());
+    pub_ = node->create_publisher<T>(
+        topic, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().best_effort());
     type_ = std::type_index(typeid(T));
   }
 
@@ -59,7 +60,9 @@ struct Ros2Backend {
   using TransformStamped = geometry_msgs::msg::TransformStamped;
 
   explicit Ros2Backend(Handle node)
-      : node_(node), tf_(std::make_shared<tf2_ros::TransformBroadcaster>(node)) {}
+      : node_(node),
+        tf_(std::make_shared<tf2_ros::TransformBroadcaster>(
+            node, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().best_effort())) {}
 
   template <typename M>
   void advertise(TypedPublisher& pub, const std::string& topic) {

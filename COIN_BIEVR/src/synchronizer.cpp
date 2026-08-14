@@ -11,7 +11,12 @@ bool Synchronizer::addImu(const ImuMeasurement& imu) {
     return false;
   }
   imu_queue_.push_back(imu);
+  // Keep a separate output-only IMU queue before synchronization. If this IMU
+  // completes a LiDAR interval, processFrame() can then re-anchor and replay
+  // it from the corrected state before the pending IMU output is published.
+  pipeline_->queueImuForOdometry(imu);
   synchronizeData();
+  pipeline_->propagatePendingImuOdometry();
   return true;
 }
 

@@ -1,6 +1,7 @@
 #ifndef COIN_BIEVR_PIPELINE_H_
 #define COIN_BIEVR_PIPELINE_H_
 
+#include <deque>
 #include <typeindex>
 
 #include "coin_bievr/coin_bievr_map.h"
@@ -47,6 +48,11 @@ class Pipeline {
   void processFrame(const std::vector<ImuMeasurement>& imu_data,
                     const StampedIntensityPointcloud& pointcloud);
 
+  // Output-only IMU-rate propagation. These samples are not inserted into the
+  // LiDAR-time estimator state window or inertial optimization graph.
+  void queueImuForOdometry(const ImuMeasurement& imu);
+  void propagatePendingImuOdometry();
+
   template <typename T>
   void registerPublisher(std::function<void(const T&, const Header&, const std::string& topic,
                                             const std::string& child_frame)>
@@ -66,7 +72,8 @@ class Pipeline {
                       const IntensityPointcloud& pointcloud);
   void tryInitMap(uint64_t stamp, const State& x_j_pred, const Transform& T_W_I_init,
                   const Pointcloud& undistorted, const Intensities& intensities,
-                  std::vector<double>& ranges, const Header& header);
+                  std::vector<double>& ranges, const Header& header,
+                  const ImuMeasurement& anchor_imu);
   void sampleSource(const Pointcloud& undistorted, const Intensities& intensities,
                     const Transform& T_W_I_init, Pointcloud& filtered, Pointcloud& coarse,
                     Pointcloud& fine, IntensityPointcloud& intensity) const;
@@ -91,12 +98,22 @@ class Pipeline {
   void publishFrame(const Header& header, const Transform& T_W_I, const Pointcloud& full_registered,
                     const Pointcloud& source_filtered, const Pointcloud& source_coarse,
                     const Pointcloud& source_fine, const Pointcloud& undistorted,
-                    const Intensities& intensities);
-  void publishLatestState(const Header& header);
+                    const Intensities& intensities, const ImuMeasurement& anchor_imu);
+  void publishLatestState(const Header& header, const ImuMeasurement& anchor_imu);
   void publishDebugClouds(const Pointcloud& source_filtered, const Pointcloud& source_coarse,
                           const Pointcloud& source_fine, const Pointcloud& undistorted_cloud,
                           const Intensities& intensities, const Transform& T_W_I,
                           const Header& header);
+
+  struct ImuOdometrySample {
+    ImuMeasurement imu;
+    State predicted_state;
+  };
+
+  void resetImuOdometry(const ImuMeasurement& anchor_imu);
+  void predictImuOdometrySamples(bool publish);
+  void publishImuOdometry(const ImuOdometrySample& sample);
+  ImuMeasurement scaledImu(const ImuMeasurement& imu) const;
 
   // Logging
   void logTUM(double timestamp, const Transform& pose);
@@ -117,6 +134,15 @@ class Pipeline {
   // Accelerometer scale resolved during bias estimation (1 if raw, g if the IMU
   // reports gravity-normalized accelerations). Applied to all incoming IMU data.
   double imu_acc_scale_ = 1.0;
+
+  // Output-only IMU-rate propagation. The queue is never inserted into states_
+  // or imu_integrators_.
+  std::deque<ImuOdometrySample> imu_odom_queue_;
+  ImuIntegratorPtr imu_odom_integrator_;
+  State imu_odom_anchor_;
+  uint64_t imu_odom_last_integrated_stamp_ = 0;
+  uint64_t imu_odom_last_published_stamp_ = 0;
+  size_t imu_odom_seq_counter_ = 0;
 
   using PublishFunction =
       std::function<void(const void*, const Header&, const std::string&, const std::string&)>;

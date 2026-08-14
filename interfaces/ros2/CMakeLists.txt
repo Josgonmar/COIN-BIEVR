@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(coin_bievr_ros2)
 
+# For CLANGD
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Declare the C++ standard via CMake (not a raw -std flag): coin_bievr links Ceres
 # which propagates a cxx_std_17 compile feature, and a raw -std=c++2a would be
 # overridden by the -std=gnu++17 CMake appends for that feature. CMAKE_CXX_STANDARD

@@ -110,7 +110,7 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
   if (points_filtered_I.empty()) {
     LOG(W, "No pointcloud data to process.");
     addState(imu.back().stamp, x_j_pred.quat, x_j_pred.p, x_j_pred.v);
-    publishLatestState(header);
+    publishLatestState(header, imu_data.back());
     return;
   }
 
@@ -126,7 +126,7 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
   const Transform T_W_I_init(x_j_pred.quat, x_j_pred.p);
   if (phase_ == Phase::NeedMap) {
     tryInitMap(imu_data.back().stamp, x_j_pred, T_W_I_init, points_undistorted_I, intensities,
-               ranges, header);
+               ranges, header, imu_data.back());
     return;
   }
 
@@ -165,7 +165,7 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
   // Publish results
   timing::Timer pub_time("08_publish");
   publishFrame(header, T_W_I, points_registered, source_filtered, source_coarse, source_fine,
-               points_undistorted_I, intensities);
+               points_undistorted_I, intensities, imu_data.back());
   pub_time.Stop();
 
   step_timer.Stop();
@@ -183,6 +183,93 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
                    timing::Timing::GetMeanSeconds("step"), timing::Timing::GetMaxSeconds("step"),
                    n_effective_points);
   }
+}
+
+void Pipeline::queueImuForOdometry(const ImuMeasurement& imu) {
+  if (!imu_odom_queue_.empty() && imu.stamp < imu_odom_queue_.back().imu.stamp) {
+    LOG(W, "IMU odometry sample at " << imu.stamp << " is out of order. Skipping.");
+    return;
+  }
+  imu_odom_queue_.push_back({imu, State{}});
+}
+
+void Pipeline::propagatePendingImuOdometry() {
+  if (phase_ == Phase::NeedBias || states_.empty() || !imu_odom_integrator_) {
+    return;
+  }
+  predictImuOdometrySamples(true);
+}
+
+ImuMeasurement Pipeline::scaledImu(const ImuMeasurement& imu) const {
+  ImuMeasurement scaled = imu;
+  scaled.acc *= imu_acc_scale_;
+  return scaled;
+}
+
+void Pipeline::resetImuOdometry(const ImuMeasurement& anchor_imu) {
+  if (states_.empty()) {
+    return;
+  }
+
+  imu_odom_anchor_ = states_.rbegin()->second;
+  imu_odom_integrator_ =
+      std::make_shared<ImuIntegrator>(config_.imu, acc_bias_, gyro_bias_);
+  imu_odom_integrator_->integrate(scaledImu(anchor_imu));
+  imu_odom_last_integrated_stamp_ = anchor_imu.stamp;
+
+  // Samples at or before the corrected state are now represented by the
+  // anchor. Samples after it must be replayed through the new prediction.
+  while (!imu_odom_queue_.empty() &&
+         imu_odom_queue_.front().imu.stamp <= anchor_imu.stamp) {
+    imu_odom_queue_.pop_front();
+  }
+  predictImuOdometrySamples(false);
+
+  // Publish the corrected anchor only if it keeps the IMU odometry stream
+  // monotonic. Already-published future samples are recomputed internally but
+  // are not replayed onto the ROS topic.
+  if (anchor_imu.stamp > imu_odom_last_published_stamp_) {
+    ImuOdometrySample anchor{anchor_imu, imu_odom_anchor_};
+    publishImuOdometry(anchor);
+    imu_odom_last_published_stamp_ = anchor_imu.stamp;
+  }
+}
+
+void Pipeline::predictImuOdometrySamples(bool publish) {
+  if (!imu_odom_integrator_) {
+    return;
+  }
+
+  const V3 gravity = gravity_dir_ * kGMagnitude;
+  for (auto& sample : imu_odom_queue_) {
+    if (sample.imu.stamp > imu_odom_last_integrated_stamp_) {
+      imu_odom_integrator_->integrate(scaledImu(sample.imu));
+      imu_odom_integrator_->predict(imu_odom_anchor_.quat, imu_odom_anchor_.p,
+                                    imu_odom_anchor_.v, gravity, sample.predicted_state.quat,
+                                    sample.predicted_state.p, sample.predicted_state.v);
+      imu_odom_last_integrated_stamp_ = sample.imu.stamp;
+    }
+
+    if (publish && sample.imu.stamp > imu_odom_last_published_stamp_) {
+      publishImuOdometry(sample);
+      imu_odom_last_published_stamp_ = sample.imu.stamp;
+    }
+  }
+}
+
+void Pipeline::publishImuOdometry(const ImuOdometrySample& sample) {
+  const Header header{sample.imu.stamp, static_cast<uint32_t>(imu_odom_seq_counter_++),
+                      config_.map_frame};
+
+  Odometry odom;
+  odom.pose = Transform(sample.predicted_state.quat, sample.predicted_state.p);
+  // The propagated state velocity is world/odom-frame velocity. Odometry twist
+  // is expressed in the child IMU frame, so rotate it by the predicted pose.
+  odom.linear_velocity = sample.predicted_state.quat.conjugate() * sample.predicted_state.v;
+  // The gyro measurement is already expressed in the IMU frame, matching the
+  // existing LiDAR-rate odometry contract.
+  odom.angular_velocity = sample.imu.gyro;
+  publish(odom, header, "imu/odom", config_.body_frame);
 }
 
 bool Pipeline::initializeBias(const std::vector<ImuMeasurement>& imu_data,
@@ -232,12 +319,13 @@ bool Pipeline::initializeBias(const std::vector<ImuMeasurement>& imu_data,
 
 void Pipeline::tryInitMap(uint64_t stamp, const State& x_j_pred, const Transform& T_W_I_init,
                           const Pointcloud& undistorted, const Intensities& intensities,
-                          std::vector<double>& ranges, const Header& header) {
+                          std::vector<double>& ranges, const Header& header,
+                          const ImuMeasurement& anchor_imu) {
   if (undistorted.size() < config_.min_points_for_map_init) return;
   const Pointcloud registered = T_W_I_init * undistorted;
   map_->integratePoints(IntensityPointcloud(registered, intensities), &ranges);
   addState(stamp, x_j_pred.quat, x_j_pred.p, x_j_pred.v);
-  publishLatestState(header);
+  publishLatestState(header, anchor_imu);
   publish(IntensityPointcloud(registered, intensities), header, "points/registered");
   if (map_->size() > config_.map_size_running_threshold) {
     phase_ = Phase::Running;
@@ -382,16 +470,17 @@ bool Pipeline::optimizeInertialWindow() {
 void Pipeline::publishFrame(const Header& header, const Transform& T_W_I,
                             const Pointcloud& full_registered, const Pointcloud& source_filtered,
                             const Pointcloud& source_coarse, const Pointcloud& source_fine,
-                            const Pointcloud& undistorted, const Intensities& intensities) {
+                            const Pointcloud& undistorted, const Intensities& intensities,
+                            const ImuMeasurement& anchor_imu) {
   if (config_.publish_all_clouds) {
     publishDebugClouds(source_filtered, source_coarse, source_fine, undistorted, intensities, T_W_I,
                        header);
   }
   publish(IntensityPointcloud(full_registered, intensities), header, "points/registered");
-  publishLatestState(header);
+  publishLatestState(header, anchor_imu);
 }
 
-void Pipeline::publishLatestState(const Header& header) {
+void Pipeline::publishLatestState(const Header& header, const ImuMeasurement& anchor_imu) {
   if (states_.empty()) {
     LOG(W, "No states to publish.");
     return;
@@ -405,9 +494,14 @@ void Pipeline::publishLatestState(const Header& header) {
   // comes straight from the latest gyro measurement (already in the body frame).
   odom.linear_velocity = latest_state.quat.conjugate() * latest_state.v;
   odom.angular_velocity = latest_gyro_;
-  publish(odom, header, "odom", config_.body_frame);
+  publish(odom, header, "lidar/odom", config_.body_frame);
   publish(acc_bias_, header, "bias/acc");
   publish(gyro_bias_, header, "bias/gyro");
+
+  // Re-anchor the separate output-only IMU propagation at this corrected
+  // LiDAR-time state. Pending samples are recomputed, but already published
+  // timestamps are not replayed onto the ROS topic.
+  resetImuOdometry(anchor_imu);
 }
 
 void Pipeline::publishDebugClouds(const Pointcloud& source_filtered,

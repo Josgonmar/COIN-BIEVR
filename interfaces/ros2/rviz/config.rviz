@@ -59,7 +59,7 @@ Visualization Manager:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /coin_bievr/points/registered
       Use Fixed Frame: true
       Use rainbow: true
@@ -100,7 +100,7 @@ Visualization Manager:
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /coin_bievr/odom
       Value: true
     - Alpha: 1
@@ -131,7 +131,7 @@ Visualization Manager:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /coin_bievr/points/coarse
       Use Fixed Frame: true
       Use rainbow: true
@@ -164,7 +164,7 @@ Visualization Manager:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /coin_bievr/points/fine
       Use Fixed Frame: true
       Use rainbow: true
