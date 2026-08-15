@@ -23,8 +23,8 @@ COIN-BIEVR adapts intensity-based concepts from COIN-LIO into the BIEVR-LIO fram
 > The project builds on the authors’ official open-source BIEVR-LIO implementation. I implemented the intensity-related additions myself, following the COIN-BIEVR paper as closely as I could.
 >
 > I’m by no means an expert on this, so expect rough edges, misunderstandings, and probably a bug or two. AI-assisted tools were also used during implementation and code review, so there may well be some confidently invented nonsense hiding somewhere. If you spot something wrong, corrections and contributions are very welcome!
->
->[!NOTE]
+
+>[!IMPORTANT]
 > The implementation currently uses the generic spherical projection from Equation (1) of the paper. I haven’t tested it across many different LiDAR configurations yet, so I’d recommend taking a look at the config files and checking that the assumptions make sense for your setup.
 
 <details>

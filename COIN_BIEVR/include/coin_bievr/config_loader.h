@@ -21,6 +21,7 @@
 #include <coin_bievr/pipeline.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cmath>
 #include <filesystem>
 #include <ostream>
 #include <sstream>
@@ -100,6 +101,30 @@ inline bool extrinsicFromVectors(const std::vector<double>& t_vec, const std::ve
   const V3 t(t_vec[0], t_vec[1], t_vec[2]);
   Rotation R;
   R << R_vec[0], R_vec[1], R_vec[2], R_vec[3], R_vec[4], R_vec[5], R_vec[6], R_vec[7], R_vec[8];
+
+  if (!t.allFinite() || !R.allFinite()) {
+    LOG(E, "Config error: " << label << " contains a non-finite translation or rotation value.");
+    return false;
+  }
+
+  // A LiDAR-to-IMU rotation must belong to SO(3). In particular, accepting a
+  // singular matrix here would make the following rigid transform project the
+  // point cloud onto a plane and leave the estimator operating in the wrong
+  // geometry. Allow the small numerical error introduced by rounded calibration
+  // values, but reject scale, shear, reflection, and rank-deficient matrices.
+  constexpr double kRotationTolerance = 1e-3;
+  const double orthogonality_error =
+      (R.transpose() * R - Rotation::Identity()).cwiseAbs().maxCoeff();
+  const double determinant = R.determinant();
+  if (orthogonality_error > kRotationTolerance ||
+      std::abs(determinant - 1.0) > kRotationTolerance) {
+    LOG(E, "Config error: "
+               << label << " rotation must be a proper rotation matrix (R^T R = I, det(R) = +1). "
+               << "Got max|R^T R - I|=" << orthogonality_error << " and det(R)=" << determinant
+               << ". Check the row-major 3x3 calibration values.");
+    return false;
+  }
+
   out = Transform(R, t);
   return true;
 }

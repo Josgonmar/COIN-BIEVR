@@ -97,13 +97,15 @@ class Pipeline {
 
   void publishFrame(const Header& header, const Transform& T_W_I, const Pointcloud& full_registered,
                     const Pointcloud& source_filtered, const Pointcloud& source_coarse,
-                    const Pointcloud& source_fine, const Pointcloud& undistorted,
+                    const Pointcloud& source_fine,
+                    const IntensityPointcloud& source_intensity, const Pointcloud& undistorted,
                     const Intensities& intensities, const ImuMeasurement& anchor_imu);
   void publishLatestState(const Header& header, const ImuMeasurement& anchor_imu);
   void publishDebugClouds(const Pointcloud& source_filtered, const Pointcloud& source_coarse,
-                          const Pointcloud& source_fine, const Pointcloud& undistorted_cloud,
-                          const Intensities& intensities, const Transform& T_W_I,
-                          const Header& header);
+                          const Pointcloud& source_fine,
+                          const IntensityPointcloud& source_intensity,
+                          const Pointcloud& undistorted_cloud, const Intensities& intensities,
+                          const Transform& T_W_I, const Header& header);
 
   struct ImuOdometrySample {
     ImuMeasurement imu;

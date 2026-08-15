@@ -165,7 +165,7 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
   // Publish results
   timing::Timer pub_time("08_publish");
   publishFrame(header, T_W_I, points_registered, source_filtered, source_coarse, source_fine,
-               points_undistorted_I, intensities, imu_data.back());
+               source_intensity, points_undistorted_I, intensities, imu_data.back());
   pub_time.Stop();
 
   step_timer.Stop();
@@ -470,11 +470,12 @@ bool Pipeline::optimizeInertialWindow() {
 void Pipeline::publishFrame(const Header& header, const Transform& T_W_I,
                             const Pointcloud& full_registered, const Pointcloud& source_filtered,
                             const Pointcloud& source_coarse, const Pointcloud& source_fine,
+                            const IntensityPointcloud& source_intensity,
                             const Pointcloud& undistorted, const Intensities& intensities,
                             const ImuMeasurement& anchor_imu) {
   if (config_.publish_all_clouds) {
-    publishDebugClouds(source_filtered, source_coarse, source_fine, undistorted, intensities, T_W_I,
-                       header);
+    publishDebugClouds(source_filtered, source_coarse, source_fine, source_intensity, undistorted,
+                       intensities, T_W_I, header);
   }
   publish(IntensityPointcloud(full_registered, intensities), header, "points/registered");
   publishLatestState(header, anchor_imu);
@@ -506,14 +507,17 @@ void Pipeline::publishLatestState(const Header& header, const ImuMeasurement& an
 
 void Pipeline::publishDebugClouds(const Pointcloud& source_filtered,
                                   const Pointcloud& source_coarse, const Pointcloud& source_fine,
-                                  const Pointcloud& undistorted_cloud,
-                                  const Intensities& intensities, const Transform& T_W_I,
-                                  const Header& header) {
+                                  const IntensityPointcloud& source_intensity,
+                                  const Pointcloud& undistorted_cloud, const Intensities& intensities,
+                                  const Transform& T_W_I, const Header& header) {
   Pointcloud source_registered = T_W_I * source_filtered;
   Pointcloud fine_registered = T_W_I * source_fine;
   Pointcloud coarse_registered = T_W_I * source_coarse;
+  const Pointcloud intensity_points = source_intensity;
+  Pointcloud intensity_registered = T_W_I * intensity_points;
   publish(fine_registered, header, "points/fine");
   publish(coarse_registered, header, "points/coarse");
+  publish(intensity_registered, header, "points/intensity");
   publish(source_registered, header, "points/effective");
   Header body_header = header;
   body_header.frame = config_.body_frame;
