@@ -62,7 +62,7 @@ struct Ros2Backend {
   explicit Ros2Backend(Handle node)
       : node_(node),
         tf_(std::make_shared<tf2_ros::TransformBroadcaster>(
-            node, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().best_effort())) {}
+            node, rclcpp::QoS(rclcpp::KeepLast(1)).transient_local())) {}
 
   template <typename M>
   void advertise(TypedPublisher& pub, const std::string& topic) {
