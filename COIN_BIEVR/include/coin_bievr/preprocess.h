@@ -27,10 +27,10 @@ void sampleInformed(const COINBIEVRMap& map, const Transform& T_W_L, const Point
                     Pointcloud& points_coarse, Pointcloud& points_fine, double voxel_size,
                     size_t n_samples);
 
-void sampleIntensityInformed(const COINBIEVRMap& map, const Transform& T_W_L,
+bool sampleIntensityInformed(const COINBIEVRMap& map, const Transform& T_W_L,
                              const IntensityPointcloud& points_raw,
                              IntensityPointcloud& points_intensity, double voxel_size,
-                             size_t n_voxels);
+                             size_t n_voxels, V3& uninformative_direction_W);
 
 template <typename T>
 concept HasStamp = requires(T t) {

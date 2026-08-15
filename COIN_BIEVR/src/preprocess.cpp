@@ -187,12 +187,12 @@ void sampleInformed(const COINBIEVRMap& map, const Transform& T_W_L, const Point
                     });
 }
 
-void sampleIntensityInformed(const COINBIEVRMap& map, const Transform& T_W_L,
+bool sampleIntensityInformed(const COINBIEVRMap& map, const Transform& T_W_L,
                              const IntensityPointcloud& points_raw,
                              IntensityPointcloud& points_intensity, double voxel_size,
-                             size_t n_voxels) {
+                             size_t n_voxels, V3& uninformative_direction_W) {
   points_intensity.clear();
-  if (points_raw.empty() || n_voxels == 0) return;
+  if (points_raw.empty() || n_voxels == 0) return false;
 
   std::vector<VoxelHashIdx> voxel_entries(points_raw.size());
   tbb::parallel_for(tbb::blocked_range<size_t>(0, points_raw.size()),
@@ -221,15 +221,16 @@ void sampleIntensityInformed(const COINBIEVRMap& map, const Transform& T_W_L,
     const V3 normal_W = voxel->T_C_W_.linear().row(2).transpose();
     normal_information.noalias() += normal_W * normal_W.transpose();
   }
-  if (observed_hashes.empty()) return;
+  if (observed_hashes.empty()) return false;
 
   Eigen::SelfAdjointEigenSolver<M3> solver(normal_information);
-  if (solver.info() != Eigen::Success) return;
+  if (solver.info() != Eigen::Success) return false;
   const V3 eigenvalues = solver.eigenvalues();
   V3 target_direction_W = solver.eigenvectors().col(0);
   if (10.0 * eigenvalues(0) > eigenvalues(1)) {
     target_direction_W += solver.eigenvectors().col(1);
   }
+  uninformative_direction_W = target_direction_W.normalized();
 
   std::vector<VoxelScore> voxel_scores;
   voxel_scores.reserve(observed_hashes.size());
@@ -252,7 +253,7 @@ void sampleIntensityInformed(const COINBIEVRMap& map, const Transform& T_W_L,
   for (size_t i = 0; i < selected_count; ++i) {
     selected_voxels.insert(voxel_scores[i].hash);
   }
-  if (selected_voxels.empty()) return;
+  if (selected_voxels.empty()) return false;
 
   std::vector<size_t> selected_indices;
   selected_indices.reserve(points_raw.size());
@@ -269,6 +270,7 @@ void sampleIntensityInformed(const COINBIEVRMap& map, const Transform& T_W_L,
                       }
                     });
   voxelDownsample(selected_points, points_intensity, voxel_size);
+  return true;
 }
 
 }  // namespace coin_bievr

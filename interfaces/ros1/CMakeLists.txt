@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   nav_msgs
+  visualization_msgs
   tf
   tf_conversions
   rosbag
@@ -53,6 +54,7 @@ catkin_package(
     sensor_msgs
     std_msgs
     nav_msgs
+    visualization_msgs
     tf
     tf_conversions
     rosbag

@@ -74,9 +74,10 @@ class Pipeline {
                   const Pointcloud& undistorted, const Intensities& intensities,
                   std::vector<double>& ranges, const Header& header,
                   const ImuMeasurement& anchor_imu);
-  void sampleSource(const Pointcloud& undistorted, const Intensities& intensities,
+  bool sampleSource(const Pointcloud& undistorted, const Intensities& intensities,
                     const Transform& T_W_I_init, Pointcloud& filtered, Pointcloud& coarse,
-                    Pointcloud& fine, IntensityPointcloud& intensity) const;
+                    Pointcloud& fine, IntensityPointcloud& intensity,
+                    V3& uninformative_direction_W) const;
 
   // State and optimization management
   bool addState(const uint64_t time, const Quaternion& quat, const V3& p, const V3& v);
@@ -133,6 +134,9 @@ class Pipeline {
   V3 gravity_dir_ = V3(0, 0, 1);
   // Latest gyro reading, used to report the angular velocity in the odometry twist.
   V3 latest_gyro_ = V3::Zero();
+  // Eigenvectors have an arbitrary sign. Remember the last displayed direction
+  // so the RViz arrow does not flip by 180 degrees between adjacent scans.
+  V3 last_uninformative_direction_W_ = V3::Zero();
   // Accelerometer scale resolved during bias estimation (1 if raw, g if the IMU
   // reports gravity-normalized accelerations). Applied to all incoming IMU data.
   double imu_acc_scale_ = 1.0;

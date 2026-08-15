@@ -12,6 +12,7 @@
 #include <string>
 #include <typeindex>
 #include <typeinfo>
+#include <visualization_msgs/msg/marker.hpp>
 
 // publisher_base.h holds the shared publish logic and transitively includes
 // coin_bievr_ros_common/conversions.h (which pulls in the ROS message headers).
@@ -58,6 +59,7 @@ struct Ros2Backend {
   using Odometry = nav_msgs::msg::Odometry;
   using Vector3Stamped = geometry_msgs::msg::Vector3Stamped;
   using TransformStamped = geometry_msgs::msg::TransformStamped;
+  using Marker = visualization_msgs::msg::Marker;
 
   explicit Ros2Backend(Handle node)
       : node_(node),

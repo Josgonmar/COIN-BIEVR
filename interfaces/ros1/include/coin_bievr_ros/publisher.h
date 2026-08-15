@@ -7,6 +7,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_broadcaster.h>
+#include <visualization_msgs/Marker.h>
 
 #include <string>
 #include <typeindex>
@@ -55,6 +56,7 @@ struct RosBackend {
   using Odometry = nav_msgs::Odometry;
   using Vector3Stamped = geometry_msgs::Vector3Stamped;
   using TransformStamped = geometry_msgs::TransformStamped;
+  using Marker = visualization_msgs::Marker;
 
   explicit RosBackend(Handle nh) : nh_(nh) {}
 

@@ -158,6 +158,14 @@ struct Odometry {
   V3 angular_velocity;  // angular velocity expressed in the body frame
 };
 
+// ROS-agnostic description of an RViz arrow. The interface wrappers convert
+// this into the ROS-version-specific visualization_msgs/Marker message.
+struct ArrowMarker {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  Point start;
+  Point end;
+};
+
 template <typename PointT>
 inline PointcloudBase<PointT> operator*(const Transform& T, PointcloudBase<PointT> P) {
   P.points() = T * P.points().colwise().homogeneous();

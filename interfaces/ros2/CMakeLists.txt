@@ -25,6 +25,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -43,6 +44,7 @@ set(ament_dependencies
   sensor_msgs
   nav_msgs
   geometry_msgs
+  visualization_msgs
   std_msgs
   tf2
   tf2_ros

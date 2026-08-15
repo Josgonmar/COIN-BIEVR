@@ -134,8 +134,10 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
   timing::Timer voxel_timer("04_sampling");
   Pointcloud source_filtered, source_coarse, source_fine;
   IntensityPointcloud source_intensity;
-  sampleSource(points_undistorted_I, intensities, T_W_I_init, source_filtered, source_coarse,
-               source_fine, source_intensity);
+  V3 uninformative_direction_W = V3::Zero();
+  const bool has_uninformative_direction =
+      sampleSource(points_undistorted_I, intensities, T_W_I_init, source_filtered, source_coarse,
+                   source_fine, source_intensity, uninformative_direction_W);
   voxel_timer.Stop();
 
   // Perform the actual registration
@@ -166,6 +168,18 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
   timing::Timer pub_time("08_publish");
   publishFrame(header, T_W_I, points_registered, source_filtered, source_coarse, source_fine,
                source_intensity, points_undistorted_I, intensities, imu_data.back());
+  if (has_uninformative_direction) {
+    if (last_uninformative_direction_W_.squaredNorm() > 0.0 &&
+        last_uninformative_direction_W_.dot(uninformative_direction_W) < 0.0) {
+      uninformative_direction_W = -uninformative_direction_W;
+    }
+    last_uninformative_direction_W_ = uninformative_direction_W;
+    constexpr double kDirectionArrowLength = 1.0;
+    const Point arrow_start = T_W_I.translation();
+    const ArrowMarker arrow{arrow_start,
+                            arrow_start + kDirectionArrowLength * uninformative_direction_W};
+    publish(arrow, header, "markers/uninformative_direction");
+  }
   pub_time.Stop();
 
   step_timer.Stop();
@@ -332,10 +346,11 @@ void Pipeline::tryInitMap(uint64_t stamp, const State& x_j_pred, const Transform
   }
 }
 
-void Pipeline::sampleSource(const Pointcloud& undistorted, const Intensities& intensities,
+bool Pipeline::sampleSource(const Pointcloud& undistorted, const Intensities& intensities,
                             const Transform& T_W_I_init, Pointcloud& filtered,
                             Pointcloud& coarse, Pointcloud& fine,
-                            IntensityPointcloud& intensity) const {
+                            IntensityPointcloud& intensity,
+                            V3& uninformative_direction_W) const {
   Pointcloud source_down;
   voxelDownsample(undistorted, source_down, config_.preprocess.downsample_resolution);
   if (config_.preprocess.informed_sampling) {
@@ -346,9 +361,10 @@ void Pipeline::sampleSource(const Pointcloud& undistorted, const Intensities& in
     filtered = source_down;
   }
 
-  sampleIntensityInformed(*map_, T_W_I_init, IntensityPointcloud(undistorted, intensities),
-                          intensity, config_.preprocess.intensity_downsample_resolution,
-                          config_.preprocess.intensity_voxels);
+  const bool has_uninformative_direction = sampleIntensityInformed(
+      *map_, T_W_I_init, IntensityPointcloud(undistorted, intensities), intensity,
+      config_.preprocess.intensity_downsample_resolution, config_.preprocess.intensity_voxels,
+      uninformative_direction_W);
 
   // Eq. (13) applies the geometric objective to G union P. Both samplers retain
   // original scan points, so exact coordinates identify overlap without a
@@ -374,6 +390,7 @@ void Pipeline::sampleSource(const Pointcloud& undistorted, const Intensities& in
       filtered[geometric_size + i] = additional_points[i];
     }
   }
+  return has_uninformative_direction;
 }
 
 bool Pipeline::addState(const uint64_t time, const Quaternion& quat, const V3& p, const V3& v) {
