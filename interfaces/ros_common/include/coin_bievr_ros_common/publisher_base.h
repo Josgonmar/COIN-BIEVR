@@ -38,7 +38,7 @@ class PublisherBase {
   // "/coin_bievr/odometry"). Absolute topics (leading '/') are left untouched.
   PublisherBase(Handle handle, std::shared_ptr<Pipeline> pipeline, const std::string& ns = "")
       : backend_(std::move(handle)), ns_(ns) {
-    registerTypes<Pointcloud, IntensityPointcloud, Odometry, V3>(pipeline);
+    registerTypes<Pointcloud, IntensityPointcloud, Odometry, V3, ArrowMarker>(pipeline);
   }
   virtual ~PublisherBase() = default;
 
@@ -97,6 +97,32 @@ class PublisherBase {
     if (!getOrAdvertise<typename Backend::Vector3Stamped>(topic)) return false;
     headerToMsg(header, msg.header);
     vecToMsg(vec, msg.vector);
+    publishers_[topic].publish(msg);
+    return true;
+  }
+
+  bool publishImpl(const ArrowMarker& arrow, const Header& header, const std::string& topic,
+                   const std::string& /*child_frame*/) {
+    typename Backend::Marker msg;
+    if (!getOrAdvertise<typename Backend::Marker>(topic)) return false;
+    headerToMsg(header, msg.header);
+    msg.ns = "uninformative_direction";
+    msg.id = 0;
+    msg.type = msg.ARROW;
+    msg.action = msg.ADD;
+    msg.pose.orientation.w = 1.0;
+    msg.points.resize(2);
+    vecToMsg(arrow.start, msg.points[0]);
+    vecToMsg(arrow.end, msg.points[1]);
+    // ARROW markers defined by two points interpret x/y/z as shaft diameter,
+    // head diameter, and head length respectively.
+    msg.scale.x = 0.08;
+    msg.scale.y = 0.16;
+    msg.scale.z = 0.25;
+    msg.color.r = 1.0;
+    msg.color.g = 0.5;
+    msg.color.b = 0.0;
+    msg.color.a = 1.0;
     publishers_[topic].publish(msg);
     return true;
   }
