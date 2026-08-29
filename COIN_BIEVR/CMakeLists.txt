@@ -38,6 +38,7 @@ add_library(${PROJECT_NAME}
   src/ls_optimizer.cpp
   src/preprocess.cpp
   src/prior_factor.cpp
+  src/probabilistic_kernel_optimizer.cpp
   src/synchronizer.cpp
   src/timing.cpp
   src/undistort.cpp

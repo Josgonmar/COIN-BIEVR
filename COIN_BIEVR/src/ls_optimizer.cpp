@@ -6,10 +6,27 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_reduce.h>
 
+#include <utility>
+
 #include "coin_bievr/log++.h"
 #include "coin_bievr/utils.h"
 
 namespace coin_bievr {
+
+namespace {
+
+ProbabilisticKernelConfig makePkoConfig(const RegistrationConfig& config) {
+  ProbabilisticKernelConfig pko_config;
+  pko_config.min_delta = config.huber_delta * config.pko_min_delta_factor;
+  pko_config.max_delta = config.huber_delta * config.pko_max_delta_factor;
+  pko_config.num_candidates = config.pko_num_candidates;
+  pko_config.truncation = config.huber_delta * config.pko_truncation_factor;
+  pko_config.gmm_components = config.pko_gmm_components;
+  pko_config.gmm_sample_size = config.pko_gmm_sample_size;
+  return pko_config;
+}
+
+}  // namespace
 
 LsqRegistration::LsqRegistration(const COINBIEVRMap& map, const Pointcloud& geometric_source,
                                  const IntensityPointcloud& intensity_source,
@@ -17,10 +34,20 @@ LsqRegistration::LsqRegistration(const COINBIEVRMap& map, const Pointcloud& geom
     : config_(config),
       map_(map),
       points_j_(geometric_source),
-      intensity_points_j_(intensity_source) {}
+      intensity_points_j_(intensity_source),
+      geometric_huber_delta_(config.huber_delta),
+      photometric_huber_delta_(config.huber_delta),
+      geometric_pko_(makePkoConfig(config)),
+      photometric_pko_(makePkoConfig(config)) {}
 
 Transform LsqRegistration::computeTransformation(const Transform& T_W_L_init) {
   Transform x0 = T_W_L_init;
+  converged_ = false;
+  lm_lambda_ = -1.0;
+  geometric_huber_delta_ = config_.huber_delta;
+  photometric_huber_delta_ = config_.huber_delta;
+  geometric_pko_.reset();
+  photometric_pko_.reset();
 
   skew_points_j_.resize(points_j_.size());
   tbb::parallel_for(tbb::blocked_range<size_t>(0, points_j_.size()),
@@ -63,11 +90,14 @@ bool LsqRegistration::isConverged(const Transform& delta) const {
   return std::max(r_delta.maxCoeff(), t_delta.maxCoeff()) < 1;
 }
 
-double LsqRegistration::linearize(const Transform& T_W_L, Matrix66* H, Vector6* b) {
+double LsqRegistration::linearize(const Transform& T_W_L, Matrix66* H, Vector6* b,
+                                   std::vector<double>* geometric_residuals,
+                                   std::vector<double>* photometric_residuals) {
   const bool compute_jacobians = (H != nullptr && b != nullptr);
 
   Accumulator identity_accumulator;
-  identity_accumulator.huber_delta = config_.huber_delta;
+  identity_accumulator.huber_delta = geometric_huber_delta_;
+  identity_accumulator.collect_residuals = (geometric_residuals != nullptr);
 
   Accumulator total = tbb::parallel_deterministic_reduce(
       tbb::blocked_range<size_t>(0, points_j_.size()),
@@ -140,10 +170,12 @@ double LsqRegistration::linearize(const Transform& T_W_L, Matrix66* H, Vector6* 
         out.merge(b);
         return out;
       });
+  if (geometric_residuals) *geometric_residuals = std::move(total.residuals);
 
   if (!intensity_points_j_.empty()) {
     Accumulator photometric_identity;
-    photometric_identity.huber_delta = config_.huber_delta;
+    photometric_identity.huber_delta = photometric_huber_delta_;
+    photometric_identity.collect_residuals = (photometric_residuals != nullptr);
     Accumulator photometric_total = tbb::parallel_deterministic_reduce(
         tbb::blocked_range<size_t>(0, intensity_points_j_.size()), photometric_identity,
         [&](const tbb::blocked_range<size_t>& r, Accumulator local_acc) -> Accumulator {
@@ -171,6 +203,9 @@ double LsqRegistration::linearize(const Transform& T_W_L, Matrix66* H, Vector6* 
                                     intensity)) {
                 continue;
               }
+              // Keep the existing objective scaling inside the residual. PKO
+              // therefore estimates the photometric threshold in the same
+              // weighted units used by the Huber accumulator.
               const double photo_residual =
                   config_.photometric_weight * (intensity_points_j_[i](3) - intensity);
               local_acc.add(photo_residual, nullptr);
@@ -193,6 +228,8 @@ double LsqRegistration::linearize(const Transform& T_W_L, Matrix66* H, Vector6* 
             intensity_jac *= inv_size;
             const Row6 photometric_jac =
                 -config_.photometric_weight * (intensity_jac * SE3_Jac.topRows<2>());
+            // This deliberately matches the pre-existing weighted residual;
+            // adaptive tuning must not silently change photometric_weight.
             const double photo_residual =
                 config_.photometric_weight * (intensity_points_j_[i](3) - intensity);
             local_acc.add(photo_residual, &photometric_jac);
@@ -204,6 +241,9 @@ double LsqRegistration::linearize(const Transform& T_W_L, Matrix66* H, Vector6* 
           out.merge(b);
           return out;
         });
+    if (photometric_residuals) {
+      *photometric_residuals = std::move(photometric_total.residuals);
+    }
     total.merge(photometric_total);
   }
 
@@ -247,7 +287,21 @@ Eigen::Quaterniond so3_exp(const Eigen::Vector3d& omega) {
 bool LsqRegistration::stepLm(Transform& x0, Transform& delta) {
   Matrix66 H;
   Vector6 b;
-  double y0 = linearize(x0, &H, &b);
+  double y0 = 0.0;
+
+  if (config_.adaptive_huber) {
+    std::vector<double> geometric_residuals;
+    std::vector<double> photometric_residuals;
+    linearize(x0, nullptr, nullptr, &geometric_residuals, &photometric_residuals);
+    geometric_huber_delta_ = geometric_pko_.estimate(geometric_residuals);
+    photometric_huber_delta_ = photometric_pko_.estimate(photometric_residuals);
+    if (config_.lm_debug_print) {
+      LOG(I, "PKO Huber deltas: geometric=" << geometric_huber_delta_
+                                             << ", photometric=" << photometric_huber_delta_);
+    }
+  }
+
+  y0 = linearize(x0, &H, &b);
 
   if (lm_lambda_ < 0.0) {
     lm_lambda_ = config_.lm_init_lambda_factor * H.diagonal().array().abs().maxCoeff();

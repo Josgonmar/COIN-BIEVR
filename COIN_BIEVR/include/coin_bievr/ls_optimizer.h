@@ -2,9 +2,11 @@
 #define COIN_BIEVR_LS_OPTIMIZER_H_
 
 #include <memory>
+#include <vector>
 
 #include "coin_bievr/coin_bievr_map.h"
 #include "coin_bievr/common.h"
+#include "coin_bievr/probabilistic_kernel_optimizer.h"
 
 namespace coin_bievr {
 
@@ -16,7 +18,18 @@ struct RegistrationConfig {
   double lm_init_lambda_factor = 1e-9;
   double rotation_epsilon = 1e-4;
   double transformation_epsilon = 1e-5;
+  // Legacy fixed Huber threshold, also used as the reference unit for the
+  // adaptive PKO bounds below.
   double huber_delta = 0.1;
+  // PKO is deliberately opt-in until its effect is compared against the
+  // fixed-Huber baseline on recorded sequences.
+  bool adaptive_huber = false;
+  double pko_min_delta_factor = 0.01;
+  double pko_max_delta_factor = 10.0;
+  int pko_num_candidates = 50;
+  double pko_truncation_factor = 100.0;
+  int pko_gmm_components = 3;
+  int pko_gmm_sample_size = 1000;
   int max_iterations = 20;
   int lm_max_iterations = 20;
   bool lm_debug_print = false;
@@ -162,9 +175,12 @@ struct Accumulator {
   Matrix66 H = Matrix66::Zero();
   Vector6 b = Vector6::Zero();
   double huber_delta = 0.2;  // default delta
+  bool collect_residuals = false;
+  std::vector<double> residuals;
 
   inline void add(double r, const Row6* J) {
     ++count;
+    if (collect_residuals) residuals.push_back(r);
     double abs_r = std::abs(r);
     bool inlier = abs_r <= huber_delta;
     double w = inlier ? 1.0 : huber_delta / abs_r;
@@ -184,6 +200,9 @@ struct Accumulator {
     error_sum += other.error_sum;
     H += other.H;
     b += other.b;
+    if (collect_residuals) {
+      residuals.insert(residuals.end(), other.residuals.begin(), other.residuals.end());
+    }
   }
 };
 
@@ -206,12 +225,18 @@ class LsqRegistration {
  private:
   bool isConverged(const Transform& delta) const;
 
-  double linearize(const Transform& T_W_L, Matrix66* H = nullptr, Vector6* b = nullptr);
+  double linearize(const Transform& T_W_L, Matrix66* H = nullptr, Vector6* b = nullptr,
+                   std::vector<double>* geometric_residuals = nullptr,
+                   std::vector<double>* photometric_residuals = nullptr);
 
   bool stepLm(Transform& x0, Transform& delta);
 
   RegistrationConfig config_;
   double lm_lambda_ = -1.0;
+  double geometric_huber_delta_ = 0.1;
+  double photometric_huber_delta_ = 0.1;
+  ProbabilisticKernelOptimizer geometric_pko_;
+  ProbabilisticKernelOptimizer photometric_pko_;
   const COINBIEVRMap& map_;
   const Pointcloud& points_j_;
   const IntensityPointcloud& intensity_points_j_;

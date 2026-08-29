@@ -196,6 +196,13 @@ inline void printConfigOverview(const Config& config) {
   os << "  output_scale:         " << hc.intensity.output_scale << "\n";
   os << "optimization:\n";
   os << "  huber_delta:          " << hc.registration.huber_delta << "\n";
+  os << "  adaptive_huber:       " << yn(hc.registration.adaptive_huber) << "\n";
+  os << "  pko_delta_factors:    " << hc.registration.pko_min_delta_factor << " - "
+     << hc.registration.pko_max_delta_factor << "\n";
+  os << "  pko_candidates:       " << hc.registration.pko_num_candidates << "\n";
+  os << "  pko_truncation_factor: " << hc.registration.pko_truncation_factor << "\n";
+  os << "  pko_gmm:              " << hc.registration.pko_gmm_components << " components, "
+     << hc.registration.pko_gmm_sample_size << " samples\n";
   os << "  img_residual:         " << yn(hc.registration.img_residual) << "\n";
   os << "  img_jacobian:         " << yn(hc.registration.img_jacobian) << "\n";
   os << "  photometric_weight:   " << hc.registration.photometric_weight << "\n";
@@ -306,12 +313,36 @@ inline bool loadConfigFromYaml(const std::vector<std::string>& yaml_paths, Confi
   }
 
   // --- optimization ---
+  int pko_num_candidates = 0;
+  int pko_gmm_components = 0;
+  int pko_gmm_sample_size = 0;
   if (!config_internal::getPositive(yaml, "optimization", "huber_delta", 100.,
                                     hc.registration.huber_delta) ||
       !config_internal::getPositive(yaml, "optimization", "photometric_weight", 0.00095,
-                                    hc.registration.photometric_weight)) {
+                                    hc.registration.photometric_weight) ||
+      !config_internal::getPositive(yaml, "optimization", "pko_min_delta_factor", 0.01,
+                                    hc.registration.pko_min_delta_factor) ||
+      !config_internal::getPositive(yaml, "optimization", "pko_max_delta_factor", 10.0,
+                                    hc.registration.pko_max_delta_factor) ||
+      !config_internal::getPositive(yaml, "optimization", "pko_num_candidates", 50,
+                                    pko_num_candidates) ||
+      !config_internal::getPositive(yaml, "optimization", "pko_truncation_factor", 100.0,
+                                    hc.registration.pko_truncation_factor) ||
+      !config_internal::getPositive(yaml, "optimization", "pko_gmm_components", 3,
+                                    pko_gmm_components) ||
+      !config_internal::getPositive(yaml, "optimization", "pko_gmm_sample_size", 1000,
+                                    pko_gmm_sample_size)) {
     return false;
   }
+  hc.registration.pko_num_candidates = pko_num_candidates;
+  hc.registration.pko_gmm_components = pko_gmm_components;
+  hc.registration.pko_gmm_sample_size = pko_gmm_sample_size;
+  if (hc.registration.pko_max_delta_factor < hc.registration.pko_min_delta_factor) {
+    LOG(E, "Config error: optimization.pko_max_delta_factor must be >= "
+           "optimization.pko_min_delta_factor.");
+    return false;
+  }
+  hc.registration.adaptive_huber = yaml.get<bool>("optimization", "adaptive_huber", false);
   hc.registration.img_residual = yaml.get<bool>("optimization", "img_residual", true);
   hc.registration.img_jacobian = yaml.get<bool>("optimization", "img_jacobian", true);
 
