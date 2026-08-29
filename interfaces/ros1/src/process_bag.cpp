@@ -90,5 +90,7 @@ int main(int argc, char** argv) {
   bag.close();
   LOG(I, "Bag closed");
 
+  synchronizer.stop();
+  pipeline->stopImuOdometry();
   return 0;
 }

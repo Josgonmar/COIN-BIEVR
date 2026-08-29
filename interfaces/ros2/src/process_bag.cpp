@@ -102,6 +102,8 @@ int main(int argc, char** argv) {
   reader.close();
   LOG(I, "Bag closed");
 
+  synchronizer->stop();
+  pipeline->stopImuOdometry();
   rclcpp::shutdown();
   return 0;
 }

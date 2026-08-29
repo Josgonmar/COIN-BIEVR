@@ -43,6 +43,25 @@ Pipeline::Pipeline(const Config& config) : config_(config) {
   if (config_.print_dashboard) {
     printDashboardBanner(dashboard_.ascii, "COIN-BIEVR  WAITING FOR DATA");
   }
+
+  // Keep IMU-rate output propagation independent from the synchronous LiDAR
+  // callback. The worker remains idle until the first corrected anchor is
+  // available, so publisher registration can complete before it emits data.
+  imu_odom_thread_ = std::thread(&Pipeline::imuOdometryWorker, this);
+}
+
+Pipeline::~Pipeline() { stopImuOdometry(); }
+
+void Pipeline::stopImuOdometry() {
+  {
+    std::lock_guard<std::mutex> lock(imu_odom_mutex_);
+    if (imu_odom_stop_) return;
+    imu_odom_stop_ = true;
+  }
+  imu_odom_cv_.notify_one();
+  if (imu_odom_thread_.joinable()) {
+    imu_odom_thread_.join();
+  }
 }
 
 void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
@@ -200,18 +219,19 @@ void Pipeline::processFrame(const std::vector<ImuMeasurement>& imu_data,
 }
 
 void Pipeline::queueImuForOdometry(const ImuMeasurement& imu) {
+  std::lock_guard<std::mutex> lock(imu_odom_mutex_);
   if (!imu_odom_queue_.empty() && imu.stamp < imu_odom_queue_.back().imu.stamp) {
     LOG(W, "IMU odometry sample at " << imu.stamp << " is out of order. Skipping.");
     return;
   }
   imu_odom_queue_.push_back({imu, State{}});
+  imu_odom_cv_.notify_one();
 }
 
 void Pipeline::propagatePendingImuOdometry() {
-  if (phase_ == Phase::NeedBias || states_.empty() || !imu_odom_integrator_) {
-    return;
-  }
-  predictImuOdometrySamples(true);
+  // The worker is notified by queueImuForOdometry(). Keep this method as a
+  // cheap compatibility hook for the synchronizer's existing call sequence.
+  imu_odom_cv_.notify_one();
 }
 
 ImuMeasurement Pipeline::scaledImu(const ImuMeasurement& imu) const {
@@ -225,7 +245,9 @@ void Pipeline::resetImuOdometry(const ImuMeasurement& anchor_imu) {
     return;
   }
 
+  std::lock_guard<std::mutex> lock(imu_odom_mutex_);
   imu_odom_anchor_ = states_.rbegin()->second;
+  imu_odom_gravity_ = gravity_dir_ * kGMagnitude;
   imu_odom_integrator_ =
       std::make_shared<ImuIntegrator>(config_.imu, acc_bias_, gyro_bias_);
   imu_odom_integrator_->integrate(scaledImu(anchor_imu));
@@ -247,6 +269,7 @@ void Pipeline::resetImuOdometry(const ImuMeasurement& anchor_imu) {
     publishImuOdometry(anchor);
     imu_odom_last_published_stamp_ = anchor_imu.stamp;
   }
+  imu_odom_cv_.notify_one();
 }
 
 void Pipeline::predictImuOdometrySamples(bool publish) {
@@ -254,7 +277,7 @@ void Pipeline::predictImuOdometrySamples(bool publish) {
     return;
   }
 
-  const V3 gravity = gravity_dir_ * kGMagnitude;
+  const V3 gravity = imu_odom_gravity_;
   for (auto& sample : imu_odom_queue_) {
     if (sample.imu.stamp > imu_odom_last_integrated_stamp_) {
       imu_odom_integrator_->integrate(scaledImu(sample.imu));
@@ -268,6 +291,24 @@ void Pipeline::predictImuOdometrySamples(bool publish) {
       publishImuOdometry(sample);
       imu_odom_last_published_stamp_ = sample.imu.stamp;
     }
+  }
+}
+
+void Pipeline::imuOdometryWorker() {
+  std::unique_lock<std::mutex> lock(imu_odom_mutex_);
+  while (true) {
+    imu_odom_cv_.wait(lock, [this] {
+      return imu_odom_stop_ ||
+             (imu_odom_integrator_ && !imu_odom_queue_.empty() &&
+              imu_odom_queue_.back().imu.stamp > imu_odom_last_integrated_stamp_);
+    });
+
+    if (imu_odom_stop_) return;
+
+    // Keep the mutex while updating and publishing a sample. This makes a
+    // LiDAR re-anchor atomic with respect to output publication, preventing a
+    // sample from being published concurrently with a reset.
+    predictImuOdometrySamples(true);
   }
 }
 
@@ -299,7 +340,12 @@ bool Pipeline::initializeBias(const std::vector<ImuMeasurement>& imu_data,
 
   acc_bias_ = bias_initializer_->accBias();
   gyro_bias_ = bias_initializer_->gyroBias();
-  imu_acc_scale_ = bias_initializer_->accScale();
+  {
+    // The IMU output worker reads this scale while replaying queued samples.
+    // Publish the value under the same mutex used by its predictor.
+    std::lock_guard<std::mutex> lock(imu_odom_mutex_);
+    imu_acc_scale_ = bias_initializer_->accScale();
+  }
   const Rotation R_est = bias_initializer_->initialOrientation();
   bias_initializer_.reset();
 

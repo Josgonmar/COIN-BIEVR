@@ -109,6 +109,8 @@ int main(int argc, char** argv) {
       });
 
   rclcpp::spin(node);
+  synchronizer->stop();
+  pipeline->stopImuOdometry();
   rclcpp::shutdown();
   return 0;
 }

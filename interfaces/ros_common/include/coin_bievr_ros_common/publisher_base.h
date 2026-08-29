@@ -17,6 +17,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <typeinfo>
 #include <unordered_map>
@@ -45,6 +46,7 @@ class PublisherBase {
   template <typename T>
   bool publish(const T& data, const Header& header, const std::string& topic,
                const std::string& child_frame = "") {
+    std::lock_guard<std::mutex> lock(publish_mutex_);
     return publishImpl(data, header, topic, child_frame);
   }
 
@@ -164,6 +166,10 @@ class PublisherBase {
   Backend backend_;
   std::string ns_;
   std::unordered_map<std::string, typename Backend::TypedPublisher> publishers_;
+  // IMU-rate output is published from the Pipeline worker while LiDAR-rate
+  // output is published by the processing callback. Protect lazy advertising,
+  // the publisher map, and the shared TF broadcaster from concurrent access.
+  mutable std::mutex publish_mutex_;
 };
 
 }  // namespace coin_bievr

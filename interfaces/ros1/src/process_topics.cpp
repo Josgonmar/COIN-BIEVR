@@ -101,6 +101,8 @@ int main(int argc, char** argv) {
       });
 
   ros::spin();
+  synchronizer.stop();
+  pipeline->stopImuOdometry();
 
   return 0;
 }

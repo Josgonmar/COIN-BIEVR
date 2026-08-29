@@ -1,7 +1,10 @@
 #ifndef COIN_BIEVR_PIPELINE_H_
 #define COIN_BIEVR_PIPELINE_H_
 
+#include <condition_variable>
 #include <deque>
+#include <mutex>
+#include <thread>
 #include <typeindex>
 
 #include "coin_bievr/coin_bievr_map.h"
@@ -43,7 +46,7 @@ class Pipeline {
   };
 
   explicit Pipeline(const Config& config);
-  virtual ~Pipeline() = default;
+  virtual ~Pipeline();
 
   void processFrame(const std::vector<ImuMeasurement>& imu_data,
                     const StampedIntensityPointcloud& pointcloud);
@@ -52,6 +55,9 @@ class Pipeline {
   // LiDAR-time estimator state window or inertial optimization graph.
   void queueImuForOdometry(const ImuMeasurement& imu);
   void propagatePendingImuOdometry();
+  // Stop the output-only IMU worker before its publisher owner is destroyed.
+  // The destructor also calls this as a fallback for non-ROS users.
+  void stopImuOdometry();
 
   template <typename T>
   void registerPublisher(std::function<void(const T&, const Header&, const std::string& topic,
@@ -115,6 +121,7 @@ class Pipeline {
 
   void resetImuOdometry(const ImuMeasurement& anchor_imu);
   void predictImuOdometrySamples(bool publish);
+  void imuOdometryWorker();
   void publishImuOdometry(const ImuOdometrySample& sample);
   ImuMeasurement scaledImu(const ImuMeasurement& imu) const;
 
@@ -146,9 +153,14 @@ class Pipeline {
   std::deque<ImuOdometrySample> imu_odom_queue_;
   ImuIntegratorPtr imu_odom_integrator_;
   State imu_odom_anchor_;
+  V3 imu_odom_gravity_ = V3(0, 0, kGMagnitude);
   uint64_t imu_odom_last_integrated_stamp_ = 0;
   uint64_t imu_odom_last_published_stamp_ = 0;
   size_t imu_odom_seq_counter_ = 0;
+  std::mutex imu_odom_mutex_;
+  std::condition_variable imu_odom_cv_;
+  bool imu_odom_stop_ = false;
+  std::thread imu_odom_thread_;
 
   using PublishFunction =
       std::function<void(const void*, const Header&, const std::string&, const std::string&)>;

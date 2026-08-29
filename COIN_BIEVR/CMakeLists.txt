@@ -23,6 +23,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(TBB REQUIRED)
+find_package(Threads REQUIRED)
 find_package(glog QUIET)  # usually re-exported transitively by Ceres
 
 # ---------------------------------------------------------------------------
@@ -70,6 +71,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   Eigen3::Eigen
   Ceres::ceres
   TBB::tbb
+  Threads::Threads
 )
 if(glog_FOUND)
   target_link_libraries(${PROJECT_NAME} PUBLIC glog::glog)
