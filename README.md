@@ -321,6 +321,9 @@ their native fields.
 
 The shared algorithm parameters in `params.yaml` are intended to remain the
 same between sensor configurations; tune them only when needed for your setup.
+
+The registration uses a fixed Huber threshold by default. Set `optimization.adaptive_huber: True` to enable the PKO-based alternative. It maintains independent geometric and photometric thresholds while preserving `photometric_weight` as the existing joint-objective scaling. PKO is updated at the configured accepted-iteration interval and remains fixed during LM damping trials.
+**PKO can improve robustness in dynamic environments by downweighting geometric residuals caused by moving objects and photometric residuals caused by changes in LiDAR intensity or reflectivity.**
 </details>
 
 # Acknowledgements
@@ -373,5 +376,19 @@ BIEVR-LIO work and the COIN-BIEVR paper followed by this implementation.
   author       = {Pfreundschuh, Patrick and {Le Gentil}, Cedric and Siegwart, Roland and Cadena, Cesar},
   year         = 2026,
   url          = {https://icra2026-rigorous-perception.github.io/pdf/pfreundschuh2026.pdf},
+}
+```
+
+Probabilistic kernel optimization:
+```bibtex
+@article{choi2025pko,
+  author={Choi, Seungwon and Kim, Tae-Wan},
+  journal={IEEE Robotics and Automation Letters},
+  title={Probabilistic Kernel Optimization for Robust State Estimation},
+  year={2025},
+  volume={10},
+  number={3},
+  pages={2998-3005},
+  doi={10.1109/LRA.2025.3536294}
 }
 ```

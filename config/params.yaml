@@ -16,6 +16,14 @@ preprocess:
 
 optimization:
   huber_delta: 0.1 # Huber norm threshold
+  adaptive_huber: True # Adapt separate geometric/photometric Huber thresholds with PKO
+  pko_min_delta_factor: 0.01 # Minimum PKO delta relative to huber_delta
+  pko_max_delta_factor: 100.0 # Initial/max PKO delta relative to huber_delta
+  pko_num_candidates: 25 # Candidate thresholds searched by PKO
+  pko_truncation_factor: 100.0 # Finite Huber-PKO integration range relative to huber_delta
+  pko_gmm_components: 2 # Components used to model each residual distribution
+  pko_gmm_sample_size: 100 # Maximum samples used by the GMM fit
+  pko_update_interval: 1 # Re-estimate PKO after this many accepted LM steps
   photometric_weight: 0.00095 # Lambda in the joint geometric-photometric objective
 
 imu:
