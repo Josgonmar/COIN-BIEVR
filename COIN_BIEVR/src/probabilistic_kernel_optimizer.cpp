@@ -1,6 +1,7 @@
 #include "coin_bievr/probabilistic_kernel_optimizer.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <numeric>
@@ -86,10 +87,18 @@ void ProbabilisticKernelOptimizer::fitGmm(const std::vector<double>& residuals) 
   const int sample_size = std::min(config_.gmm_sample_size,
                                   static_cast<int>(residuals.size()));
 
-  std::vector<double> sample = residuals;
+  std::vector<double> sample;
+  sample.reserve(static_cast<size_t>(sample_size));
   std::mt19937 generator(42);
-  std::shuffle(sample.begin(), sample.end(), generator);
-  sample.resize(static_cast<size_t>(sample_size));
+  for (size_t i = 0; i < residuals.size(); ++i) {
+    if (sample.size() < static_cast<size_t>(sample_size)) {
+      sample.push_back(residuals[i]);
+      continue;
+    }
+    std::uniform_int_distribution<size_t> replacement(0, i);
+    const size_t replacement_index = replacement(generator);
+    if (replacement_index < sample.size()) sample[replacement_index] = residuals[i];
+  }
   std::sort(sample.begin(), sample.end());
 
   gmm_weights_.assign(static_cast<size_t>(components), 1.0 / components);
@@ -113,6 +122,9 @@ void ProbabilisticKernelOptimizer::fitGmm(const std::vector<double>& residuals) 
 
   std::vector<double> responsibilities(
       static_cast<size_t>(sample_size * components), 0.0);
+  std::vector<double> next_weights(static_cast<size_t>(components));
+  std::vector<double> next_means(static_cast<size_t>(components));
+  std::vector<double> next_variances(static_cast<size_t>(components));
   for (int iteration = 0; iteration < kMaxEmIterations; ++iteration) {
     for (int i = 0; i < sample_size; ++i) {
       double normalization = 0.0;
@@ -131,9 +143,6 @@ void ProbabilisticKernelOptimizer::fitGmm(const std::vector<double>& residuals) 
       }
     }
 
-    std::vector<double> next_weights(static_cast<size_t>(components));
-    std::vector<double> next_means(static_cast<size_t>(components));
-    std::vector<double> next_variances(static_cast<size_t>(components));
     double parameter_change = 0.0;
     for (int component = 0; component < components; ++component) {
       double effective_count = 0.0;
@@ -163,9 +172,9 @@ void ProbabilisticKernelOptimizer::fitGmm(const std::vector<double>& residuals) 
                    gmm_means_[static_cast<size_t>(component)]);
     }
 
-    gmm_weights_ = std::move(next_weights);
-    gmm_means_ = std::move(next_means);
-    gmm_variances_ = std::move(next_variances);
+    std::swap(gmm_weights_, next_weights);
+    std::swap(gmm_means_, next_means);
+    std::swap(gmm_variances_, next_variances);
     if (parameter_change < kEmTolerance) break;
   }
 }
@@ -197,8 +206,8 @@ double ProbabilisticKernelOptimizer::partitionFunction(double delta) const {
 double ProbabilisticKernelOptimizer::jsDivergence(double delta) const {
   const double step = config_.truncation / kEvaluationBins;
   const double partition = partitionFunction(delta);
-  std::vector<double> data_mass(kEvaluationBins);
-  std::vector<double> kernel_mass(kEvaluationBins);
+  std::array<double, kEvaluationBins> data_mass{};
+  std::array<double, kEvaluationBins> kernel_mass{};
   double data_total = 0.0;
   double kernel_total = 0.0;
 

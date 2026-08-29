@@ -25,11 +25,12 @@ struct RegistrationConfig {
   // fixed-Huber baseline on recorded sequences.
   bool adaptive_huber = false;
   double pko_min_delta_factor = 0.01;
-  double pko_max_delta_factor = 10.0;
-  int pko_num_candidates = 50;
+  double pko_max_delta_factor = 100.0;
+  int pko_num_candidates = 25;
   double pko_truncation_factor = 100.0;
-  int pko_gmm_components = 3;
-  int pko_gmm_sample_size = 1000;
+  int pko_gmm_components = 2;
+  int pko_gmm_sample_size = 100;
+  int pko_update_interval = 1;
   int max_iterations = 20;
   int lm_max_iterations = 20;
   bool lm_debug_print = false;
@@ -244,6 +245,7 @@ class LsqRegistration {
   std::vector<M3> skew_intensity_points_j_;
   bool converged_ = false;
   int num_effective_points_ = 0;
+  int accepted_lm_steps_ = 0;
 };
 
 }  // namespace coin_bievr

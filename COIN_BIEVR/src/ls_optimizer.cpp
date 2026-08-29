@@ -44,6 +44,7 @@ Transform LsqRegistration::computeTransformation(const Transform& T_W_L_init) {
   Transform x0 = T_W_L_init;
   converged_ = false;
   lm_lambda_ = -1.0;
+  accepted_lm_steps_ = 0;
   geometric_huber_delta_ = config_.huber_delta;
   photometric_huber_delta_ = config_.huber_delta;
   geometric_pko_.reset();
@@ -171,6 +172,11 @@ double LsqRegistration::linearize(const Transform& T_W_L, Matrix66* H, Vector6* 
         return out;
       });
   if (geometric_residuals) *geometric_residuals = std::move(total.residuals);
+  // The geometric and photometric samples are returned separately. Do not
+  // copy the geometric vector again when the photometric accumulator is merged
+  // into the cost/Hessian accumulator.
+  total.collect_residuals = false;
+  total.residuals.clear();
 
   if (!intensity_points_j_.empty()) {
     Accumulator photometric_identity;
@@ -287,21 +293,20 @@ Eigen::Quaterniond so3_exp(const Eigen::Vector3d& omega) {
 bool LsqRegistration::stepLm(Transform& x0, Transform& delta) {
   Matrix66 H;
   Vector6 b;
-  double y0 = 0.0;
-
-  if (config_.adaptive_huber) {
-    std::vector<double> geometric_residuals;
-    std::vector<double> photometric_residuals;
-    linearize(x0, nullptr, nullptr, &geometric_residuals, &photometric_residuals);
-    geometric_huber_delta_ = geometric_pko_.estimate(geometric_residuals);
-    photometric_huber_delta_ = photometric_pko_.estimate(photometric_residuals);
-    if (config_.lm_debug_print) {
-      LOG(I, "PKO Huber deltas: geometric=" << geometric_huber_delta_
-                                             << ", photometric=" << photometric_huber_delta_);
-    }
-  }
-
-  y0 = linearize(x0, &H, &b);
+  std::vector<double> geometric_residuals;
+  std::vector<double> photometric_residuals;
+  const int pko_update_interval = std::max(1, config_.pko_update_interval);
+  // The next accepted step is the one that would trigger PKO when the current
+  // accepted-step count is zero or on an interval boundary. Only collect
+  // samples on those steps; rejected or non-scheduled steps need no vectors.
+  const bool update_pko_after_acceptance =
+      config_.adaptive_huber && accepted_lm_steps_ % pko_update_interval == 0;
+  std::vector<double>* geometric_residuals_ptr =
+      update_pko_after_acceptance ? &geometric_residuals : nullptr;
+  std::vector<double>* photometric_residuals_ptr =
+      update_pko_after_acceptance ? &photometric_residuals : nullptr;
+  const double y0 = linearize(x0, &H, &b, geometric_residuals_ptr,
+                              photometric_residuals_ptr);
 
   if (lm_lambda_ < 0.0) {
     lm_lambda_ = config_.lm_init_lambda_factor * H.diagonal().array().abs().maxCoeff();
@@ -330,6 +335,16 @@ bool LsqRegistration::stepLm(Transform& x0, Transform& delta) {
     }
 
     x0 = xi;
+    ++accepted_lm_steps_;
+    if (update_pko_after_acceptance) {
+      geometric_huber_delta_ = geometric_pko_.estimate(geometric_residuals);
+      photometric_huber_delta_ = photometric_pko_.estimate(photometric_residuals);
+      if (config_.lm_debug_print) {
+        LOG(I, "PKO Huber deltas: geometric=" << geometric_huber_delta_
+                                               << ", photometric="
+                                               << photometric_huber_delta_);
+      }
+    }
     lm_lambda_ *= std::max(1.0 / 3.0, 1 - std::pow(2 * rho - 1, 3));
     return true;
   }

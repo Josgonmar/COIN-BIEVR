@@ -23,6 +23,7 @@ optimization:
   pko_truncation_factor: 100.0 # Finite Huber-PKO integration range relative to huber_delta
   pko_gmm_components: 2 # Components used to model each residual distribution
   pko_gmm_sample_size: 100 # Maximum samples used by the GMM fit
+  pko_update_interval: 1 # Re-estimate PKO after this many accepted LM steps
   photometric_weight: 0.00095 # Lambda in the joint geometric-photometric objective
 
 imu:
